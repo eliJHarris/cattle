@@ -13,9 +13,13 @@ class DashboardSmokeTest(unittest.TestCase):
         text = page.read_text(encoding="utf-8")
         self.assertIn("Cattle Futures", text)
         self.assertIn('id="theme-toggle"', text)
-        self.assertNotIn('id="start-date"', text)
-        self.assertNotIn('id="end-date"', text)
-        self.assertNotIn('id="range-preset"', text)
+        self.assertIn('id="start-date"', text)
+        self.assertIn('id="end-date"', text)
+        self.assertIn('id="range-preset"', text)
+        for preset in ("1d", "5d", "1m", "6m", "1y", "5y", "all"):
+            self.assertIn(f'value="{preset}"', text)
+        self.assertIn("applyDateRange", text)
+        self.assertIn("preloaded in this page", text)
         self.assertIn('id="topic-filter"', text)
         self.assertIn("Plotly.newPlot", text)
         self.assertIn('class="chart-wrap"', text)
@@ -33,6 +37,8 @@ class DashboardSmokeTest(unittest.TestCase):
         payload = json.loads(metadata.read_text(encoding="utf-8"))
         self.assertIn("data_through", payload)
         self.assertIn("source_status", payload)
+        self.assertEqual(payload["range_presets"], ["1d", "5d", "1m", "6m", "1y", "5y", "all"])
+        self.assertEqual(payload["range_data"]["price_frequency"], "daily")
         self.assertGreaterEqual(payload["chart_count"], 8)
 
     def test_pages_quote_snapshot_is_valid_json(self):

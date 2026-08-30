@@ -58,6 +58,26 @@ PLOT_CONFIG = {
     "scrollZoom": False,
     "modeBarButtonsToRemove": ["lasso2d", "select2d"],
 }
+RANGE_PRESETS = (
+    ("1d", "1 day"),
+    ("5d", "5 days"),
+    ("1m", "1 month"),
+    ("6m", "6 months"),
+    ("1y", "1 year"),
+    ("5y", "5 years"),
+    ("all", "All history"),
+)
+RANGE_CHART_MIN_DAYS = {
+    # These charts contain daily observations, so every preset is useful.
+    "price-regime": 1,
+    "market-drivers": 1,
+    # The remaining charts intentionally retain their native observation
+    # cadence instead of becoming empty for a 1D or 5D selection.
+    "drought": 7,
+    "positioning": 7,
+    "risk": 7,
+    "usda-history": 28,
+}
 
 
 def yahoo_closes(tickers: list[str] | str, **kwargs) -> pd.DataFrame:
@@ -378,6 +398,9 @@ def table_html(frame: pd.DataFrame, formats: dict[str, callable] | None = None) 
 def build() -> dict:
     built_at = datetime.now(timezone.utc)
     daily_prices = yahoo_closes(list(MARKET_NAMES), period="max", interval="1d").rename(columns=MARKET_NAMES)
+    daily_feeder = daily_prices["Feeder cattle"].dropna()
+    if daily_feeder.empty:
+        raise RuntimeError("Core feeder-cattle history has no daily observations")
     weekly_prices = daily_prices.resample("W-FRI").last().dropna(how="all")
     feeder_all = weekly_prices["Feeder cattle"].dropna()
     if len(feeder_all) < 156:
@@ -502,21 +525,24 @@ def build() -> dict:
     charts: dict[str, str] = {}
     time_charts: list[str] = []
 
-    # 1. Price and drawdown.
+    # 1. Price and drawdown. Keep daily observations in the page so the
+    # browser can switch between 1D, 5D, 1M, 6M, 1Y, 5Y, and all history
+    # without another network request.
+    price_drawdown = daily_feeder / daily_feeder.cummax() - 1
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.64, 0.36], vertical_spacing=0.10)
-    fig.add_trace(go.Scatter(x=feeder.index, y=feeder, name="Feeder cattle", line={"color": COLORS["blue"], "width": 2.4}, hovertemplate="%{x|%b %d, %Y}<br>%{y:.3f} cents/lb<extra></extra>"), row=1, col=1)
-    fig.add_trace(go.Scatter(x=feeder.index, y=feeder.cummax(), name="Previous high", line={"color": COLORS["muted"], "width": 1.2, "dash": "dash"}, hovertemplate="%{y:.3f}<extra></extra>"), row=1, col=1)
-    fig.add_trace(go.Scatter(x=drawdown.index, y=drawdown, name="Drawdown", fill="tozeroy", fillcolor="rgba(156,202,227,.35)", line={"color": COLORS["blue"], "width": 1.7}, hovertemplate="%{x|%b %d, %Y}<br>%{y:.1%}<extra></extra>"), row=2, col=1)
+    fig.add_trace(go.Scatter(x=daily_feeder.index, y=daily_feeder, name="Feeder cattle", line={"color": COLORS["blue"], "width": 2.4}, hovertemplate="%{x|%b %d, %Y}<br>%{y:.3f} cents/lb<extra></extra>"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=daily_feeder.index, y=daily_feeder.cummax(), name="Previous high", line={"color": COLORS["muted"], "width": 1.2, "dash": "dash"}, hovertemplate="%{y:.3f}<extra></extra>"), row=1, col=1)
+    fig.add_trace(go.Scatter(x=price_drawdown.index, y=price_drawdown, name="Drawdown", fill="tozeroy", fillcolor="rgba(156,202,227,.35)", line={"color": COLORS["blue"], "width": 1.7}, hovertemplate="%{x|%b %d, %Y}<br>%{y:.1%}<extra></extra>"), row=2, col=1)
     fig.update_yaxes(title_text="Cents/lb", row=1, col=1)
     fig.update_yaxes(title_text="Drawdown", tickformat=".0%", row=2, col=1)
-    fig.update_xaxes(title_text="Week ending", row=2, col=1)
-    style_figure(fig, "Price regime and drawdown", f"Friday closes; {feeder.index.min():%b %Y}–{feeder.index.max():%b %Y}", 660, "x unified")
+    fig.update_xaxes(title_text="Date", row=2, col=1)
+    style_figure(fig, "Price regime and drawdown", f"Daily closes; {daily_feeder.index.min():%b %Y}–{daily_feeder.index.max():%b %Y}", 660, "x unified")
     charts["price-regime"] = chart_html(fig, "price-regime", panel_count=2)
     time_charts.append("price-regime")
 
     # 2. Market drivers.
-    driver_window = weekly_prices.loc[weekly_prices.index >= weekly_prices.index.max() - pd.DateOffset(years=5)]
-    indexed_drivers = driver_window.divide(driver_window.ffill().iloc[0]).multiply(100)
+    driver_window = daily_prices.loc[daily_prices.index >= daily_prices.index.max() - pd.DateOffset(years=5)]
+    indexed_drivers = driver_window.apply(lambda series: series / series.dropna().iloc[0] * 100)
     driver_returns = driver_window.pct_change(fill_method=None).dropna()
     correlations = driver_returns.corr()["Feeder cattle"].drop("Feeder cattle")
     premium = driver_window["Feeder cattle"] - driver_window["Live cattle"]
@@ -529,8 +555,8 @@ def build() -> dict:
     fig.update_yaxes(title_text="Start = 100", row=1, col=1)
     fig.update_xaxes(range=[-1, 1], title_text="Correlation", row=2, col=1)
     fig.update_yaxes(title_text="Cents/lb", row=3, col=1)
-    fig.update_xaxes(title_text="Week ending", row=3, col=1)
-    style_figure(fig, "Relationships with live cattle and corn", "Five-year indexed prices, weekly-return correlations, and feeder premium", 810, "x unified")
+    fig.update_xaxes(title_text="Date", row=3, col=1)
+    style_figure(fig, "Relationships with live cattle and corn", "Five-year indexed daily prices, weekly-return correlations, and feeder premium", 810, "x unified")
     charts["market-drivers"] = chart_html(fig, "market-drivers", panel_count=3)
     time_charts.append("market-drivers")
 
@@ -708,6 +734,7 @@ def build() -> dict:
         for name, status in source_status.items()
     )
     as_of = feeder.index.max()
+    min_date = daily_feeder.index.min().date().isoformat()
     max_date = as_of.date().isoformat()
 
     content = f"""
@@ -719,6 +746,7 @@ def build() -> dict:
     </section>
 
     <section class="control-panel" aria-label="Dashboard controls">
+      <div class="control-group wide"><label for="range-preset">Date range</label><div class="date-row"><select id="range-preset">{''.join(f'<option value="{value}"{" selected" if value == "all" else ""}>{label}</option>' for value, label in RANGE_PRESETS)}<option value="custom">Custom dates</option></select><input id="start-date" type="date" min="{min_date}" max="{max_date}" value="{min_date}" aria-label="Start date"><span>to</span><input id="end-date" type="date" min="{min_date}" max="{max_date}" value="{max_date}" aria-label="End date"><button id="apply-range" class="primary">Apply</button></div><small class="control-help">Daily price history is preloaded in this page; changing the range does not fetch again.</small></div>
       <div class="control-group"><label for="topic-filter">Focus</label><select id="topic-filter"><option value="all">All analysis</option><option value="overview">Overview</option><option value="fundamentals">Supply & drought</option><option value="market">Market structure</option><option value="positioning">Positioning & seasonality</option><option value="risk">Risk & decision</option></select></div>
       <button id="theme-toggle" class="theme-toggle" aria-label="Toggle color theme"><span aria-hidden="true">◐</span><span class="theme-label">Dark</span></button>
     </section>
@@ -727,10 +755,10 @@ def build() -> dict:
 
     <section class="analysis-section" data-topic="overview">
       <div class="section-heading"><div><span class="section-number">01</span><h2>Market pulse</h2></div><p>Start with direction, distance from the high, and the markets that most directly frame feeder-cattle economics.</p></div>
-      <article class="chart-card">{charts['price-regime']}{source_note('Yahoo Finance', 'yahoo', 'GF=F Friday closes; continuous contract')}</article>
+      <article class="chart-card">{charts['price-regime']}{source_note('Yahoo Finance', 'yahoo', 'GF=F daily closes; full history is embedded for local range switching')}</article>
       <article class="chart-card">
         <div class="inline-controls" aria-label="Commodity visibility"><span>Visible series</span><label><input type="checkbox" data-trace-chart="market-drivers" data-trace-name="Feeder cattle" checked> Feeder</label><label><input type="checkbox" data-trace-chart="market-drivers" data-trace-name="Live cattle" checked> Live cattle</label><label><input type="checkbox" data-trace-chart="market-drivers" data-trace-name="Corn" checked> Corn</label></div>
-        {charts['market-drivers']}{source_note('Yahoo Finance', 'yahoo', 'GF=F, LE=F, and ZC=F; five-year weekly window')}
+        {charts['market-drivers']}{source_note('Yahoo Finance', 'yahoo', 'GF=F, LE=F, and ZC=F; five-year daily window; correlations use weekly returns')}
       </article>
     </section>
 
@@ -779,6 +807,10 @@ def build() -> dict:
     page = render_page(
         content=content,
         plotly_js=get_plotlyjs(),
+        time_charts=time_charts,
+        min_date=min_date,
+        max_date=max_date,
+        range_chart_min_days=RANGE_CHART_MIN_DAYS,
         live_feed_url=live_feed_url,
     )
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -789,6 +821,14 @@ def build() -> dict:
         "data_through": max_date,
         "chart_count": len(charts),
         "time_chart_ids": time_charts,
+        "range_presets": [value for value, _ in RANGE_PRESETS],
+        "range_chart_min_days": RANGE_CHART_MIN_DAYS,
+        "range_data": {
+            "source": "embedded Plotly chart data",
+            "price_frequency": "daily",
+            "price_start": min_date,
+            "price_end": max_date,
+        },
         "source_status": source_status,
         "recommendation": recommendation,
         "recommendation_score": round(float(score), 4),
@@ -823,6 +863,10 @@ def build() -> dict:
 def render_page(
     content: str,
     plotly_js: str,
+    time_charts: list[str],
+    min_date: str,
+    max_date: str,
+    range_chart_min_days: dict[str, int],
     live_feed_url: str,
 ) -> str:
     return f"""<!doctype html>
@@ -855,11 +899,13 @@ def render_page(
     .live-status::before {{ content:""; width:7px; height:7px; border-radius:50%; background:var(--muted); }}
     .live-status.is-live::before {{ background:var(--olive); box-shadow:0 0 0 4px color-mix(in srgb,var(--olive) 18%,transparent); }}
     .live-status.is-stale::before,.live-status.is-error::before {{ background:var(--orange); }}
-    .control-panel {{ position:sticky; top:10px; z-index:30; display:grid; grid-template-columns:1fr auto; gap:12px; align-items:end; background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:var(--shadow); border-radius:var(--radius); padding:14px; margin-bottom:20px; }}
+    .control-panel {{ position:sticky; top:10px; z-index:30; display:grid; grid-template-columns:minmax(0,2fr) minmax(150px,1fr) auto; gap:12px; align-items:end; background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:var(--shadow); border-radius:var(--radius); padding:14px; margin-bottom:20px; }}
     .control-group {{ min-width:0; }}
     .control-group label,.inline-controls>span {{ display:block; text-transform:uppercase; letter-spacing:.09em; font-size:.65rem; font-weight:800; color:var(--muted); margin:0 0 6px 2px; }}
-    select,button {{ border:1px solid var(--line); background:var(--surface-2); border-radius:10px; min-height:44px; padding:8px 11px; }}
+    .control-group.wide {{ min-width:0; }} .date-row {{ display:grid; grid-template-columns:minmax(105px,.85fr) minmax(115px,1fr) auto minmax(115px,1fr) auto; gap:7px; align-items:center; }} .control-help {{ display:block; color:var(--muted); font-size:.7rem; margin:6px 0 0 2px; }}
+    select,input[type="date"],button {{ border:1px solid var(--line); background:var(--surface-2); border-radius:10px; min-height:44px; padding:8px 11px; }}
     select {{ width:100%; min-width:0; }}
+    input[type="date"] {{ width:100%; min-width:0; color:var(--ink); }}
     button {{ cursor:pointer; font-weight:750; }}
     button.primary {{ background:var(--blue); color:#fff; border-color:transparent; }}
     .theme-toggle {{ display:flex; gap:7px; align-items:center; justify-content:center; background:var(--surface); min-width:86px; }}
@@ -893,9 +939,9 @@ def render_page(
     .chart-wrap[data-panel-count="4"]>div:first-child {{ min-height:820px; }}
     .js-plotly-plot,.plot-container,.svg-container {{ width:100%!important; }}
     [hidden] {{ display:none!important; }}
-    @media (max-width:1050px) {{ .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
-    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(340px,92vw,480px)!important; }} .chart-wrap[data-panel-count="2"]>div:first-child {{ height:clamp(540px,135vw,700px)!important; }} .chart-wrap[data-panel-count="3"]>div:first-child {{ height:clamp(680px,175vw,860px)!important; }} .chart-wrap[data-panel-count="4"]>div:first-child {{ height:clamp(820px,200vw,980px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(320px,82vw,430px)!important; }} .chart-wrap .js-plotly-plot {{ touch-action:pan-y; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
-    @media (max-width:380px) {{ .metric-strip {{ grid-template-columns:1fr; }} .metric-card:last-child {{ grid-column:auto; }} .decision-banner {{ grid-template-columns:1fr; }} .decision-banner > div:last-of-type {{ grid-column:auto; }} }}
+    @media (max-width:1050px) {{ .control-panel {{ grid-template-columns:1fr 1fr; }} .control-group.wide {{ grid-column:1/-1; }} .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
+    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .control-group.wide {{ grid-column:auto; }} .date-row {{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }} .date-row select {{ grid-column:1/-1; }} .date-row span {{ display:none; }} .date-row input:first-of-type {{ grid-column:1; }} .date-row input:last-of-type {{ grid-column:2; }} .date-row .primary {{ grid-column:1/-1; width:100%; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(340px,92vw,480px)!important; }} .chart-wrap[data-panel-count="2"]>div:first-child {{ height:clamp(540px,135vw,700px)!important; }} .chart-wrap[data-panel-count="3"]>div:first-child {{ height:clamp(680px,175vw,860px)!important; }} .chart-wrap[data-panel-count="4"]>div:first-child {{ height:clamp(820px,200vw,980px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(320px,82vw,430px)!important; }} .chart-wrap .js-plotly-plot {{ touch-action:pan-y; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
+    @media (max-width:380px) {{ .metric-strip {{ grid-template-columns:1fr; }} .metric-card:last-child {{ grid-column:auto; }} .date-row {{ grid-template-columns:1fr; }} .date-row select,.date-row input:first-of-type,.date-row input:last-of-type,.date-row .primary {{ grid-column:1; }} .decision-banner {{ grid-template-columns:1fr; }} .decision-banner > div:last-of-type {{ grid-column:auto; }} }}
     @media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} }}
     @media print {{ .control-panel,.inline-controls,.modebar-container {{ display:none!important; }} body {{ background:#fff; }} .shell {{ width:100%; }} .chart-card,.metric-card {{ box-shadow:none; break-inside:avoid; }} }}
   </style>
@@ -905,8 +951,15 @@ def render_page(
   <footer class="shell"><span>General market research—not individualized financial advice.</span><span>Python-built · Static GitHub Pages snapshot · No cookies or analytics</span></footer>
   <script>
   (() => {{
+    const timeCharts = {json.dumps(time_charts)};
+    const minDate = {json.dumps(min_date)};
+    let maxDate = {json.dumps(max_date)};
+    const rangeChartMinDays = {json.dumps(range_chart_min_days)};
     const liveFeedUrl = {json.dumps(live_feed_url)};
     const root = document.documentElement;
+    const startInput = document.getElementById('start-date');
+    const endInput = document.getElementById('end-date');
+    const rangePreset = document.getElementById('range-preset');
     const themeButton = document.getElementById('theme-toggle');
     const savedTheme = localStorage.getItem('cattle-theme');
     const initialTheme = savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -957,6 +1010,39 @@ def render_page(
         Plotly.relayout(gd, update).then(() => Plotly.Plots.resize(gd));
       }});
     }}
+    function applyDateRange() {{
+      const start = startInput.value, end = endInput.value;
+      if (!start || !end || start > end) return;
+      const requestedDays = Math.max(1, Math.round((Date.parse(end + 'T12:00:00Z') - Date.parse(start + 'T12:00:00Z')) / 86400000));
+      timeCharts.forEach(id => {{
+        const gd = document.getElementById(id);
+        if (!gd || !gd._fullLayout || requestedDays < (rangeChartMinDays[id] || 1)) return;
+        const update = {{}};
+        Object.keys(gd._fullLayout).filter(k => /^xaxis\\d*$/.test(k) && gd._fullLayout[k].type === 'date').forEach(k => update[k + '.range'] = [start, end]);
+        if (Object.keys(update).length) Plotly.relayout(gd, update);
+      }});
+    }}
+    function presetStart(preset) {{
+      if (preset === 'all') return minDate;
+      const date = new Date(maxDate + 'T12:00:00Z');
+      if (preset === '1d') date.setUTCDate(date.getUTCDate() - 1);
+      if (preset === '5d') date.setUTCDate(date.getUTCDate() - 5);
+      const months = preset === '1m' ? 1 : preset === '6m' ? 6 : preset === '1y' ? 12 : preset === '5y' ? 60 : 0;
+      if (months) {{
+        const day = date.getUTCDate();
+        date.setUTCDate(1);
+        date.setUTCMonth(date.getUTCMonth() - months);
+        const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+        date.setUTCDate(Math.min(day, lastDay));
+      }}
+      return date.toISOString().slice(0, 10) < minDate ? minDate : date.toISOString().slice(0, 10);
+    }}
+    function selectPreset(preset) {{
+      if (preset === 'custom') return;
+      startInput.value = presetStart(preset);
+      endInput.value = maxDate;
+      applyDateRange();
+    }}
     function formatMarketTime(value) {{
       const date = new Date(value);
       if (Number.isNaN(date.valueOf())) return 'time unavailable';
@@ -1001,6 +1087,11 @@ def render_page(
         : '';
       document.getElementById('live-price-context').textContent = move + 'As of ' + formatMarketTime(quote.market_time);
       updateLiveMarker(quote);
+      const quoteDate = String(quote.market_time || '').slice(0, 10);
+      if (/^\\d{{4}}-\\d{{2}}-\\d{{2}}$/.test(quoteDate) && quoteDate > maxDate) {{
+        maxDate = quoteDate;
+        endInput.max = quoteDate;
+      }}
     }}
     async function refreshLiveFeed() {{
       if (!liveFeedUrl) return;
@@ -1017,6 +1108,9 @@ def render_page(
       }}
     }}
     themeButton.addEventListener('click', () => applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
+    document.getElementById('apply-range').addEventListener('click', applyDateRange);
+    rangePreset.addEventListener('change', event => selectPreset(event.target.value));
+    [startInput, endInput].forEach(input => input.addEventListener('input', () => {{ rangePreset.value = 'custom'; }}));
     document.getElementById('topic-filter').addEventListener('change', event => {{
       const topic=event.target.value;
       document.querySelectorAll('[data-topic]').forEach(section => section.hidden = topic !== 'all' && !section.dataset.topic.split(' ').includes(topic));

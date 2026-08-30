@@ -1,5 +1,5 @@
 {
-  "built_at": "2026-08-30T03:38:56.180676+00:00",
+  "built_at": "2026-08-30T03:48:58.474964+00:00",
   "data_through": "2026-08-28",
   "chart_count": 12,
   "time_chart_ids": [
@@ -10,6 +10,29 @@
     "positioning",
     "risk"
   ],
+  "range_presets": [
+    "1d",
+    "5d",
+    "1m",
+    "6m",
+    "1y",
+    "5y",
+    "all"
+  ],
+  "range_chart_min_days": {
+    "price-regime": 1,
+    "market-drivers": 1,
+    "drought": 7,
+    "positioning": 7,
+    "risk": 7,
+    "usda-history": 28
+  },
+  "range_data": {
+    "source": "embedded Plotly chart data",
+    "price_frequency": "daily",
+    "price_start": "2001-04-03",
+    "price_end": "2026-08-28"
+  },
   "source_status": {
     "Yahoo prices": "Daily history through Aug 28, 2026",
     "USDA Cattle on Feed": "37 releases through Aug 21, 2026",

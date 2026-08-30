@@ -8,6 +8,7 @@ A Python-generated, self-contained cattle-futures dashboard designed for GitHub 
 - light and dark themes;
 - source and methodology notes beside the data they support;
 - a current quote snapshot layered over the analytical views;
+- preloaded 1D, 5D, 1M, 6M, 1Y, 5Y, and all-history date ranges;
 - four-hour weekday refreshes through GitHub Actions.
 
 The quote is intentionally labeled as a snapshot: GitHub Pages is static, and the free Yahoo Finance data can be delayed and has no exchange-grade service guarantee. USDA, CFTC, and drought inputs update at their official publication cadence.
@@ -36,6 +37,7 @@ The workflow rebuilds and deploys the published snapshot every four hours on wee
 
 - Browser quote card: checks the Pages-hosted snapshot every minute, so open tabs pick up new deployments.
 - Quote snapshot, full analysis, and recommendation: rebuilt every four hours on weekdays.
+- Date ranges: each build downloads the full daily Yahoo history once and embeds it in the page; range changes are local Plotly updates and do not trigger another Yahoo request.
 - USDA/CFTC/drought series: update only when those publishers release new observations.
 
 ## Data and caveats
