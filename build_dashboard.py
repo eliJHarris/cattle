@@ -899,7 +899,7 @@ def render_page(
 </head>
 <body>
   <main class="shell">{content}</main>
-  <footer class="shell"><span>General market research—not individualized financial advice.</span><span>Python-built analysis · Optional AWS market feed · No cookies or analytics</span></footer>
+  <footer class="shell"><span>General market research—not individualized financial advice.</span><span>Python-built · Static GitHub Pages snapshot · No cookies or analytics</span></footer>
   <script>
   (() => {{
     const timeCharts = {json.dumps(time_charts)};
@@ -977,7 +977,7 @@ def render_page(
       const stateLabel = state === 'REGULAR' || state === 'OPEN' ? 'Market open' : state === 'CLOSED' ? 'Market closed' : 'Market status unknown';
       status.className = 'live-status ' + (isStale || isSnapshot ? 'is-stale' : 'is-live');
       status.textContent = isSnapshot
-        ? 'Snapshot quote · AWS live feed not connected'
+        ? 'Quote snapshot · refreshes with dashboard'
         : (isStale ? 'Market feed stale' : 'Feed current') + ' · ' + stateLabel;
       document.getElementById('live-price-label').textContent = isSnapshot ? 'Latest close' : 'Latest quote';
       document.getElementById('live-price-value').textContent = quote.price.toFixed(3);
@@ -988,7 +988,7 @@ def render_page(
       document.getElementById('live-price-context').textContent = move + 'As of ' + formatMarketTime(quote.market_time);
       updateLiveMarker(quote);
       const quoteDate = String(quote.market_time || '').slice(0, 10);
-      if (/^\d{{4}}-\d{{2}}-\d{{2}}$/.test(quoteDate) && quoteDate > maxDate) {{
+      if (/^\\d{{4}}-\\d{{2}}-\\d{{2}}$/.test(quoteDate) && quoteDate > maxDate) {{
         maxDate = quoteDate;
         endInput.max = quoteDate;
       }}

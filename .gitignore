@@ -2,5 +2,5 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+docs/live-market.json
 .DS_Store
-

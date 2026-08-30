@@ -3625,6 +3625,10 @@ return Plotly;
     .lede { max-width:780px; color:var(--muted); font-size:clamp(1rem,2vw,1.25rem); margin:26px 0 18px; }
     .hero-meta { display:flex; gap:22px; flex-wrap:wrap; font-size:.84rem; color:var(--muted); }
     .hero-meta b { color:var(--ink); }
+    .live-status { display:inline-flex; align-items:center; gap:7px; }
+    .live-status::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--muted); }
+    .live-status.is-live::before { background:var(--olive); box-shadow:0 0 0 4px color-mix(in srgb,var(--olive) 18%,transparent); }
+    .live-status.is-stale::before,.live-status.is-error::before { background:var(--orange); }
     .control-panel { position:sticky; top:10px; z-index:30; display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:12px; align-items:end; background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:var(--shadow); border-radius:var(--radius); padding:14px; margin-bottom:20px; }
     .control-group { min-width:0; }
     .control-group label,.inline-controls>span { display:block; text-transform:uppercase; letter-spacing:.09em; font-size:.65rem; font-weight:800; color:var(--muted); margin:0 0 6px 2px; }
@@ -3672,7 +3676,7 @@ return Plotly;
       <div class="eyebrow">FEEDER CATTLE · CONTINUOUS CONTRACT</div>
       <h1>Cattle Futures <em>Market Monitor</em></h1>
       <p class="lede">Price regime, physical supply, cross-market drivers, positioning, seasonality, and risk—assembled into one transparent 13-week tactical view.</p>
-      <div class="hero-meta"><span>Data through <b>August 28, 2026</b></span><span>Built <b>August 30, 2026 · 01:59 UTC</b></span></div>
+      <div class="hero-meta"><span>Analysis through <b>August 28, 2026</b></span><span>Built <b>August 30, 2026 · 02:22 UTC</b></span><span id="live-status" class="live-status" role="status">Checking market feed…</span></div>
     </section>
 
     <section class="control-panel" aria-label="Dashboard controls">
@@ -3682,7 +3686,7 @@ return Plotly;
       <button id="theme-toggle" class="theme-toggle" aria-label="Toggle color theme"><span aria-hidden="true">◐</span><span class="theme-label">Dark</span></button>
     </section>
 
-    <section class="metric-strip" data-topic="overview risk"><article class="metric-card "><span>Latest close</span><strong>320.900</strong><small>cents/lb</small><p>Through Aug 28, 2026</p></article><article class="metric-card "><span>Latest week</span><strong>-4.1%</strong><small>Friday to Friday</small><p>≈ -6,925 USD/contract</p></article><article class="metric-card "><span>Trailing 52 weeks</span><strong>-12.0%</strong><small>price change</small><p>Annual vol 17.0%</p></article><article class="metric-card "><span>Current drawdown</span><strong>-14.5%</strong><small>from prior high</small><p>Worst -16.7%</p></article><article class="metric-card negative"><span>13-week stance</span><strong>SELL</strong><small>medium confidence</small><p>Composite -0.60</p></article></section>
+    <section class="metric-strip" data-topic="overview risk"><article class="metric-card " id="live-price-card" aria-live="polite"><span id="live-price-label">Latest close</span><strong id="live-price-value">320.900</strong><small id="live-price-unit">cents/lb</small><p id="live-price-context">Through Aug 28, 2026</p></article><article class="metric-card "><span>Latest week</span><strong>-4.1%</strong><small>Friday to Friday</small><p>≈ -6,925 USD/contract</p></article><article class="metric-card "><span>Trailing 52 weeks</span><strong>-12.0%</strong><small>price change</small><p>Annual vol 17.0%</p></article><article class="metric-card "><span>Current drawdown</span><strong>-14.5%</strong><small>from prior high</small><p>Worst -16.7%</p></article><article class="metric-card negative"><span>13-week stance</span><strong>SELL</strong><small>medium confidence</small><p>Composite -0.60</p></article></section>
 
     <section class="analysis-section" data-topic="overview">
       <div class="section-heading"><div><span class="section-number">01</span><h2>Market pulse</h2></div><p>Start with direction, distance from the high, and the markets that most directly frame feeder-cattle economics.</p></div>
@@ -3903,7 +3907,8 @@ return Plotly;
   (() => {
     const timeCharts = ["price-regime", "market-drivers", "usda-history", "drought", "positioning", "risk"];
     const minDate = "2020-08-28";
-    const maxDate = "2026-08-28";
+    let maxDate = "2026-08-28";
+    const liveFeedUrl = "live-market.json";
     const root = document.documentElement;
     const startInput = document.getElementById('start-date');
     const endInput = document.getElementById('end-date');
@@ -3941,6 +3946,70 @@ return Plotly;
       });
     }
     function yearsAgo(iso, years) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() - years); return d.toISOString().slice(0,10); }
+    function formatMarketTime(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.valueOf())) return 'time unavailable';
+      return new Intl.DateTimeFormat('en-US', {
+        month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone:'America/Chicago', timeZoneName:'short'
+      }).format(date);
+    }
+    function updateLiveMarker(quote) {
+      const gd = document.getElementById('price-regime');
+      if (!gd || !gd.data || !quote.market_time) return;
+      const traceIndex = gd.data.findIndex(trace => trace.name === 'Live quote');
+      const trace = {
+        x:[quote.market_time], y:[quote.price], name:'Live quote', mode:'markers', xaxis:'x', yaxis:'y',
+        marker:{color:'#e07a3f',size:11,line:{color:'#ffffff',width:2}},
+        hovertemplate:'Live / delayed quote<br>%{x|%b %d, %Y %H:%M}<br>%{y:.3f} cents/lb<extra></extra>'
+      };
+      if (traceIndex >= 0) Plotly.restyle(gd, {x:[trace.x], y:[trace.y]}, [traceIndex]);
+      else Plotly.addTraces(gd, trace);
+    }
+    function applyLiveFeed(payload) {
+      const quote = payload && payload.quotes && payload.quotes['GF=F'];
+      if (!quote || !Number.isFinite(Number(quote.price))) throw new Error('Feed has no valid GF=F quote');
+      quote.price = Number(quote.price);
+      const change = Number(quote.change);
+      const changePercent = Number(quote.change_percent);
+      const state = String(quote.market_state || 'UNKNOWN').toUpperCase();
+      const isSnapshot = payload.feed_mode === 'snapshot' || state === 'SNAPSHOT';
+      const generated = new Date(payload.generated_at);
+      const feedAgeMinutes = Number.isNaN(generated.valueOf()) ? Infinity : (Date.now() - generated.valueOf()) / 60000;
+      const isStale = !isSnapshot && feedAgeMinutes > 15;
+      const status = document.getElementById('live-status');
+      const stateLabel = state === 'REGULAR' || state === 'OPEN' ? 'Market open' : state === 'CLOSED' ? 'Market closed' : 'Market status unknown';
+      status.className = 'live-status ' + (isStale || isSnapshot ? 'is-stale' : 'is-live');
+      status.textContent = isSnapshot
+        ? 'Quote snapshot · refreshes with dashboard'
+        : (isStale ? 'Market feed stale' : 'Feed current') + ' · ' + stateLabel;
+      document.getElementById('live-price-label').textContent = isSnapshot ? 'Latest close' : 'Latest quote';
+      document.getElementById('live-price-value').textContent = quote.price.toFixed(3);
+      document.getElementById('live-price-unit').textContent = 'cents/lb';
+      const move = Number.isFinite(change) && Number.isFinite(changePercent)
+        ? `${change >= 0 ? '+' : ''}${change.toFixed(3)} (${changePercent >= 0 ? '+' : ''}${(changePercent * 100).toFixed(2)}%) vs prior close · `
+        : '';
+      document.getElementById('live-price-context').textContent = move + 'As of ' + formatMarketTime(quote.market_time);
+      updateLiveMarker(quote);
+      const quoteDate = String(quote.market_time || '').slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(quoteDate) && quoteDate > maxDate) {
+        maxDate = quoteDate;
+        endInput.max = quoteDate;
+      }
+    }
+    async function refreshLiveFeed() {
+      if (!liveFeedUrl) return;
+      try {
+        const separator = liveFeedUrl.includes('?') ? '&' : '?';
+        const response = await fetch(liveFeedUrl + separator + 't=' + Date.now(), {cache:'no-store'});
+        if (!response.ok) throw new Error('Feed returned HTTP ' + response.status);
+        applyLiveFeed(await response.json());
+      } catch (error) {
+        const status = document.getElementById('live-status');
+        status.className = 'live-status is-error';
+        status.textContent = 'Live feed unavailable · showing snapshot';
+        console.warn('Unable to refresh market feed', error);
+      }
+    }
     themeButton.addEventListener('click', () => applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
     document.getElementById('apply-range').addEventListener('click', applyDateRange);
     document.getElementById('range-preset').addEventListener('change', event => { const v=event.target.value; startInput.value = v === 'max' ? minDate : yearsAgo(maxDate, parseInt(v)); endInput.value=maxDate; applyDateRange(); });
@@ -3955,6 +4024,8 @@ return Plotly;
       if(indices.length) Plotly.restyle(gd, {visible:event.target.checked ? true : 'legendonly'}, indices);
     }));
     Promise.resolve().then(() => applyTheme(initialTheme));
+    refreshLiveFeed();
+    window.setInterval(refreshLiveFeed, 60_000);
   })();
   </script>
 </body>

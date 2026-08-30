@@ -26,6 +26,14 @@ class DashboardSmokeTest(unittest.TestCase):
         self.assertIn("source_status", payload)
         self.assertGreaterEqual(payload["chart_count"], 8)
 
+    def test_pages_quote_snapshot_is_valid_json(self):
+        snapshot = ROOT / "docs" / "live-market.json"
+        self.assertTrue(snapshot.exists(), "Run python build_dashboard.py first")
+        payload = json.loads(snapshot.read_text(encoding="utf-8"))
+        self.assertEqual(payload["feed_mode"], "snapshot")
+        self.assertIn("generated_at", payload)
+        self.assertIn("GF=F", payload["quotes"])
+
 
 if __name__ == "__main__":
     unittest.main()

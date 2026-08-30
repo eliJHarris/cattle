@@ -5,8 +5,8 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    # Refresh after U.S. futures markets on weekdays.
-    - cron: "37 23 * * 1-5"
+    # Refresh the analytical snapshot every four hours on weekdays.
+    - cron: "17 */4 * * 1-5"
 
 permissions:
   contents: read
@@ -47,4 +47,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
