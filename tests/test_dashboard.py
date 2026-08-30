@@ -26,6 +26,7 @@ class DashboardSmokeTest(unittest.TestCase):
         self.assertIn('id="topic-filter"', text)
         self.assertIn("Plotly.newPlot", text)
         self.assertIn('class="chart-wrap"', text)
+        self.assertIn('.chart-grid.two { grid-template-columns:1fr; }', text)
         self.assertIn('data-panel-count="4"', text)
         self.assertIn('applyMobileChartLayout', text)
         self.assertIn('touch-action:pan-y', text)
