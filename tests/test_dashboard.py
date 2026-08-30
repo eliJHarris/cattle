@@ -16,6 +16,9 @@ class DashboardSmokeTest(unittest.TestCase):
         self.assertIn('id="start-date"', text)
         self.assertIn('id="end-date"', text)
         self.assertIn("Plotly.newPlot", text)
+        self.assertIn('class="chart-wrap"', text)
+        self.assertIn('class="table-scroll"', text)
+        self.assertIn('@media (max-width:680px)', text)
         self.assertNotIn('src="https://cdn.plot.ly', text)
         self.assertNotIn('href="/assets/', text)
 

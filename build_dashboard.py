@@ -348,7 +348,10 @@ def style_figure(fig: go.Figure, title: str, subtitle: str, height: int = 500, h
 
 
 def chart_html(fig: go.Figure, chart_id: str) -> str:
-    return pio.to_html(fig, full_html=False, include_plotlyjs=False, config=PLOT_CONFIG, div_id=chart_id)
+    chart = pio.to_html(fig, full_html=False, include_plotlyjs=False, config=PLOT_CONFIG, div_id=chart_id)
+    # Give the generated outer wrapper a stable hook so mobile CSS can reduce
+    # chart height without having to depend on Plotly's inline markup.
+    return chart.replace('<div style="height:', '<div class="chart-wrap" style="height:', 1)
 
 
 def source_note(label: str, source_key: str, detail: str) -> str:
@@ -364,7 +367,8 @@ def table_html(frame: pd.DataFrame, formats: dict[str, callable] | None = None) 
     for column, formatter in (formats or {}).items():
         if column in display:
             display[column] = display[column].map(formatter)
-    return display.to_html(index=False, border=0, classes="data-table", escape=True, na_rep="—")
+    table = display.to_html(index=False, border=0, classes="data-table", escape=True, na_rep="—")
+    return f'<div class="table-scroll">{table}</div>'
 
 
 def build() -> dict:
@@ -840,7 +844,7 @@ def render_page(
     html[data-theme="dark"] {{ --bg:#11151a; --surface:#191f26; --surface-2:#222a33; --ink:#eef1f4; --muted:#a8b0ba; --line:#343e49; --blue:#74b4d3; --blue-soft:#243b48; --orange:#ef9a6a; --gold:#e0ba68; --olive:#9ebd60; --shadow:0 15px 42px rgba(0,0,0,.24); }}
     * {{ box-sizing:border-box; }}
     html {{ scroll-behavior:smooth; background:var(--bg); }}
-    body {{ margin:0; color:var(--ink); background:var(--bg); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.5; }}
+    body {{ margin:0; color:var(--ink); background:var(--bg); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.5; overflow-x:hidden; }}
     body::before {{ content:""; position:fixed; inset:0; pointer-events:none; opacity:.23; background-image:radial-gradient(circle at 1px 1px,var(--line) 1px,transparent 0); background-size:24px 24px; mask-image:linear-gradient(to bottom,black,transparent 46%); z-index:-1; }}
     a {{ color:var(--blue); }}
     button,input,select {{ font:inherit; color:inherit; }}
@@ -860,8 +864,8 @@ def render_page(
     .control-group {{ min-width:0; }}
     .control-group label,.inline-controls>span {{ display:block; text-transform:uppercase; letter-spacing:.09em; font-size:.65rem; font-weight:800; color:var(--muted); margin:0 0 6px 2px; }}
     .date-row {{ display:flex; align-items:center; gap:7px; }}
-    input[type="date"],select,button {{ border:1px solid var(--line); background:var(--surface-2); border-radius:10px; min-height:40px; padding:8px 11px; }}
-    input[type="date"],select {{ width:100%; }}
+    input[type="date"],select,button {{ border:1px solid var(--line); background:var(--surface-2); border-radius:10px; min-height:44px; padding:8px 11px; }}
+    input[type="date"],select {{ width:100%; min-width:0; }}
     button {{ cursor:pointer; font-weight:750; }}
     button.primary {{ background:var(--blue); color:#fff; border-color:transparent; }}
     .theme-toggle {{ display:flex; gap:7px; align-items:center; justify-content:center; background:var(--surface); min-width:86px; }}
@@ -879,20 +883,21 @@ def render_page(
     .section-heading p {{ color:var(--muted); max-width:620px; margin:0; font-size:.9rem; }}
     .chart-card {{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); margin-bottom:16px; min-width:0; }}
     .chart-grid {{ display:grid; gap:16px; align-items:start; }} .chart-grid.two {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
-    .source-note {{ border-top:1px solid var(--line); color:var(--muted); padding:10px 16px 12px; font-size:.71rem; }} .source-note span {{ text-transform:uppercase; letter-spacing:.08em; font-weight:800; }}
-    .inline-controls {{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 18px 0; font-size:.78rem; }} .inline-controls>span {{ margin:0; }} .inline-controls label {{ display:flex; gap:5px; align-items:center; }}
+    .source-note {{ border-top:1px solid var(--line); color:var(--muted); padding:10px 16px 12px; font-size:.71rem; overflow-wrap:anywhere; }} .source-note span {{ text-transform:uppercase; letter-spacing:.08em; font-weight:800; }}
+    .inline-controls {{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 18px 0; font-size:.78rem; }} .inline-controls>span {{ margin:0; }} .inline-controls label {{ display:flex; gap:5px; align-items:center; min-height:32px; }}
     .unavailable {{ margin:22px; min-height:180px; display:grid; place-items:center; color:var(--muted); background:var(--surface-2); border:1px dashed var(--line); border-radius:12px; }}
     .decision-banner {{ display:grid; grid-template-columns:repeat(3,1fr) 2fr; gap:20px; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:24px; margin-bottom:16px; box-shadow:var(--shadow); }}
     .decision-banner strong {{ font-size:1.7rem; font-variant-numeric:tabular-nums; }} .decision-banner p {{ margin:0; color:var(--muted); font-size:.85rem; }}
-    details {{ background:var(--surface); border:1px solid var(--line); border-radius:13px; margin-top:12px; overflow:auto; }} summary {{ cursor:pointer; font-weight:750; padding:14px 16px; }}
-    .data-table {{ width:100%; border-collapse:collapse; font-size:.79rem; }} .data-table th {{ text-align:left; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-size:.63rem; }} .data-table th,.data-table td {{ border-top:1px solid var(--line); padding:10px 14px; vertical-align:top; }} .data-table td:not(:nth-child(2)) {{ font-variant-numeric:tabular-nums; white-space:nowrap; }}
+    details {{ background:var(--surface); border:1px solid var(--line); border-radius:13px; margin-top:12px; overflow:hidden; }} summary {{ cursor:pointer; font-weight:750; padding:14px 16px; }}
+    .table-scroll {{ overflow-x:auto; -webkit-overflow-scrolling:touch; }} .data-table {{ width:100%; border-collapse:collapse; font-size:.79rem; }} .data-table th {{ text-align:left; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-size:.63rem; }} .data-table th,.data-table td {{ border-top:1px solid var(--line); padding:10px 14px; vertical-align:top; }} .data-table td:not(:nth-child(2)) {{ font-variant-numeric:tabular-nums; white-space:nowrap; }}
     .methodology {{ border-top:1px solid var(--line); padding:32px 0 80px; }} .method-grid {{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:24px 0; }} .method-grid article {{ border-left:2px solid var(--line); padding-left:16px; }} .method-grid h3 {{ margin:0 0 8px; font-size:.9rem; }} .method-grid p {{ color:var(--muted); font-size:.8rem; margin:0; }}
     .source-status ul {{ list-style:none; margin:0; padding:0 16px 14px; }} .source-status li {{ display:flex; justify-content:space-between; gap:24px; padding:8px 0; border-top:1px solid var(--line); font-size:.78rem; }} .source-status strong {{ text-align:right; }} .source-status .ok {{ color:var(--olive); }} .source-status .warn {{ color:var(--orange); }}
     footer {{ border-top:1px solid var(--line); color:var(--muted); padding:22px 0 40px; font-size:.75rem; display:flex; justify-content:space-between; gap:20px; }}
     .js-plotly-plot,.plot-container,.svg-container {{ width:100%!important; }}
     [hidden] {{ display:none!important; }}
     @media (max-width:1050px) {{ .control-panel {{ grid-template-columns:1fr 1fr; }} .control-group.wide {{ grid-column:1/-1; }} .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
-    @media (max-width:680px) {{ .shell {{ width:min(100% - 20px,1500px); }} .hero {{ padding-top:42px; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; }} .control-group.wide {{ grid-column:auto; }} .date-row {{ display:grid; grid-template-columns:1fr auto 1fr; }} .date-row .primary {{ grid-column:1/-1; }} .metric-strip {{ grid-template-columns:1fr 1fr; margin-bottom:58px; }} .metric-card {{ min-height:135px; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .decision-banner {{ grid-template-columns:1fr 1fr; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} footer {{ flex-direction:column; }} .data-table {{ font-size:.7rem; }} }}
+    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .control-group.wide {{ grid-column:auto; }} .date-row {{ display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); }} .date-row .primary {{ grid-column:1/-1; width:100%; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap {{ height:clamp(300px,82vw,430px)!important; }} .chart-card.compact .chart-wrap {{ height:clamp(280px,72vw,390px)!important; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
+    @media (max-width:380px) {{ .metric-strip {{ grid-template-columns:1fr; }} .metric-card:last-child {{ grid-column:auto; }} .date-row {{ grid-template-columns:minmax(0,1fr) auto; }} .date-row input:last-of-type {{ grid-column:1/-1; }} .date-row .primary {{ grid-column:1/-1; }} .decision-banner {{ grid-template-columns:1fr; }} .decision-banner > div:last-of-type {{ grid-column:auto; }} }}
     @media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} }}
     @media print {{ .control-panel,.inline-controls,.modebar-container {{ display:none!important; }} body {{ background:#fff; }} .shell {{ width:100%; }} .chart-card,.metric-card {{ box-shadow:none; break-inside:avoid; }} }}
   </style>
