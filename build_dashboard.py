@@ -333,12 +333,15 @@ def style_figure(fig: go.Figure, title: str, subtitle: str, height: int = 500, h
             "xanchor": "left",
         },
         height=height,
-        margin={"l": 64, "r": 28, "t": 90, "b": 52},
+        # Keep the subtitle and horizontal legend in distinct rows above the
+        # plotting area.  The extra top margin also gives wrapped legends
+        # room on smaller screens.
+        margin={"l": 64, "r": 28, "t": 112, "b": 52},
         paper_bgcolor="#FFFFFF",
         plot_bgcolor="#FFFFFF",
         font={"family": "Inter, ui-sans-serif, system-ui, sans-serif", "color": COLORS["ink"], "size": 12},
         colorway=[COLORS["blue"], COLORS["orange"], COLORS["olive"], COLORS["gold"], COLORS["pink"]],
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.01, "x": 0},
+        legend={"orientation": "h", "yanchor": "bottom", "y": 0.96, "x": 0},
         hovermode=hovermode,
         uirevision="cattle-dashboard",
     )
