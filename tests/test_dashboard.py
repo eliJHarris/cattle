@@ -21,6 +21,8 @@ class DashboardSmokeTest(unittest.TestCase):
         self.assertIn('class="chart-wrap"', text)
         self.assertIn('data-panel-count="4"', text)
         self.assertIn('applyMobileChartLayout', text)
+        self.assertIn('touch-action:pan-y', text)
+        self.assertIn("'dragmode': false", text)
         self.assertIn('class="table-scroll"', text)
         self.assertIn('@media (max-width:680px)', text)
         self.assertNotIn('src="https://cdn.plot.ly', text)

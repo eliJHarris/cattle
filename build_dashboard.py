@@ -894,7 +894,7 @@ def render_page(
     .js-plotly-plot,.plot-container,.svg-container {{ width:100%!important; }}
     [hidden] {{ display:none!important; }}
     @media (max-width:1050px) {{ .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
-    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(340px,92vw,480px)!important; }} .chart-wrap[data-panel-count="2"]>div:first-child {{ height:clamp(540px,135vw,700px)!important; }} .chart-wrap[data-panel-count="3"]>div:first-child {{ height:clamp(680px,175vw,860px)!important; }} .chart-wrap[data-panel-count="4"]>div:first-child {{ height:clamp(820px,200vw,980px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(320px,82vw,430px)!important; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
+    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(340px,92vw,480px)!important; }} .chart-wrap[data-panel-count="2"]>div:first-child {{ height:clamp(540px,135vw,700px)!important; }} .chart-wrap[data-panel-count="3"]>div:first-child {{ height:clamp(680px,175vw,860px)!important; }} .chart-wrap[data-panel-count="4"]>div:first-child {{ height:clamp(820px,200vw,980px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(320px,82vw,430px)!important; }} .chart-wrap .js-plotly-plot {{ touch-action:pan-y; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
     @media (max-width:380px) {{ .metric-strip {{ grid-template-columns:1fr; }} .metric-card:last-child {{ grid-column:auto; }} .decision-banner {{ grid-template-columns:1fr; }} .decision-banner > div:last-of-type {{ grid-column:auto; }} }}
     @media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} }}
     @media print {{ .control-panel,.inline-controls,.modebar-container {{ display:none!important; }} body {{ background:#fff; }} .shell {{ width:100%; }} .chart-card,.metric-card {{ box-shadow:none; break-inside:avoid; }} }}
@@ -930,24 +930,30 @@ def render_page(
       }});
     }}
     function applyMobileChartLayout() {{
-      if (!matchMedia('(max-width:680px)').matches) return;
+      const isMobile = matchMedia('(max-width:680px)').matches;
       document.querySelectorAll('.js-plotly-plot').forEach(gd => {{
         const wrapper = gd.closest('.chart-wrap');
         const panelCount = Number(wrapper && wrapper.dataset.panelCount) || 1;
-        const update = {{
-          'margin.l': 52,
-          'margin.r': 16,
-          'margin.t': panelCount > 1 ? 106 : 92,
-          'margin.b': 70,
-          'title.font.size': 15,
-          'legend.font.size': 10
-        }};
-        Object.keys(gd._fullLayout || {{}}).filter(key => /^xaxis\\d*$|^yaxis\\d*$/.test(key)).forEach(key => {{
-          update[key + '.title.font.size'] = 10;
-          update[key + '.tickfont.size'] = 10;
-          update[key + '.automargin'] = true;
-        }});
-        if (panelCount > 1) update['legend.tracegroupgap'] = 0;
+        gd.style.touchAction = isMobile ? 'pan-y' : 'auto';
+        const update = isMobile
+          ? {{
+              'margin.l': 52,
+              'margin.r': 16,
+              'margin.t': panelCount > 1 ? 106 : 92,
+              'margin.b': 70,
+              'title.font.size': 15,
+              'legend.font.size': 10,
+              'dragmode': false
+            }}
+          : {{'dragmode': 'zoom'}};
+        if (isMobile) {{
+          Object.keys(gd._fullLayout || {{}}).filter(key => /^xaxis\\d*$|^yaxis\\d*$/.test(key)).forEach(key => {{
+            update[key + '.title.font.size'] = 10;
+            update[key + '.tickfont.size'] = 10;
+            update[key + '.automargin'] = true;
+          }});
+          if (panelCount > 1) update['legend.tracegroupgap'] = 0;
+        }}
         Plotly.relayout(gd, update).then(() => Plotly.Plots.resize(gd));
       }});
     }}
