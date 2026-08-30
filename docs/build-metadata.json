@@ -1,5 +1,5 @@
 {
-  "built_at": "2026-08-30T04:04:12.229108+00:00",
+  "built_at": "2026-08-30T04:12:41.692013+00:00",
   "data_through": "2026-08-28",
   "chart_count": 12,
   "time_chart_ids": [
@@ -10,23 +10,7 @@
     "positioning",
     "risk"
   ],
-  "range_presets": [
-    "1d",
-    "5d",
-    "1m",
-    "6m",
-    "1y",
-    "5y",
-    "all"
-  ],
-  "range_chart_min_days": {
-    "price-regime": 1,
-    "market-drivers": 1,
-    "drought": 7,
-    "positioning": 7,
-    "risk": 7,
-    "usda-history": 28
-  },
+  "date_range_picker_enabled": false,
   "range_data": {
     "source": "embedded Plotly chart data",
     "price_frequency": "daily",

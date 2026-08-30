@@ -78,6 +78,10 @@ RANGE_CHART_MIN_DAYS = {
     "risk": 7,
     "usda-history": 28,
 }
+# Keep the range-picker implementation available for a possible future
+# return, but do not expose it in the published dashboard. Plotly's native
+# per-chart zoom is the only date-range control while this is false.
+ENABLE_DATE_RANGE_PICKER = False
 
 
 def yahoo_closes(tickers: list[str] | str, **kwargs) -> pd.DataFrame:
@@ -748,6 +752,11 @@ def build() -> dict:
     min_date = daily_feeder.index.min().date().isoformat()
     max_date = as_of.date().isoformat()
 
+    date_range_control = ""
+    if ENABLE_DATE_RANGE_PICKER:
+        date_range_control = f"""
+      <div class="control-group wide"><label for="range-preset">Date range</label><div class="date-row"><select id="range-preset">{''.join(f'<option value="{value}"{" selected" if value == "all" else ""}>{label}</option>' for value, label in RANGE_PRESETS)}<option value="custom">Custom dates</option></select><input id="start-date" type="date" min="{min_date}" max="{max_date}" value="{min_date}" aria-label="Start date"><span>to</span><input id="end-date" type="date" min="{min_date}" max="{max_date}" value="{max_date}" aria-label="End date"><button id="apply-range" class="primary">Apply</button></div><small class="control-help">Changes the two Market Pulse charts first. Weekly/monthly charts only respond when the range is long enough for their data; summary charts do not change. Daily price history is preloaded, so changing the range does not fetch again.</small></div>"""
+
     content = f"""
     <section class="hero" data-topic="overview">
       <div class="eyebrow">FEEDER CATTLE · CONTINUOUS CONTRACT</div>
@@ -756,8 +765,7 @@ def build() -> dict:
       <div class="hero-meta"><span>Analysis through <b>{as_of:%B %d, %Y}</b></span><span>Built <b>{built_at:%B %d, %Y · %H:%M UTC}</b></span><span id="live-status" class="live-status" role="status">Checking market feed…</span></div>
     </section>
 
-    <section class="control-panel" aria-label="Dashboard controls">
-      <div class="control-group wide"><label for="range-preset">Date range</label><div class="date-row"><select id="range-preset">{''.join(f'<option value="{value}"{" selected" if value == "all" else ""}>{label}</option>' for value, label in RANGE_PRESETS)}<option value="custom">Custom dates</option></select><input id="start-date" type="date" min="{min_date}" max="{max_date}" value="{min_date}" aria-label="Start date"><span>to</span><input id="end-date" type="date" min="{min_date}" max="{max_date}" value="{max_date}" aria-label="End date"><button id="apply-range" class="primary">Apply</button></div><small class="control-help">Changes the two Market Pulse charts first. Weekly/monthly charts only respond when the range is long enough for their data; summary charts do not change. Daily price history is preloaded, so changing the range does not fetch again.</small></div>
+    <section class="control-panel{' has-date-range' if ENABLE_DATE_RANGE_PICKER else ''}" aria-label="Dashboard controls">{date_range_control}
       <div class="control-group"><label for="topic-filter">Focus</label><select id="topic-filter"><option value="all">All analysis</option><option value="overview">Overview</option><option value="fundamentals">Supply & drought</option><option value="market">Market structure</option><option value="positioning">Positioning & seasonality</option><option value="risk">Risk & decision</option></select></div>
       <button id="theme-toggle" class="theme-toggle" aria-label="Toggle color theme"><span aria-hidden="true">◐</span><span class="theme-label">Dark</span></button>
     </section>
@@ -766,7 +774,7 @@ def build() -> dict:
 
     <section class="analysis-section" data-topic="overview">
       <div class="section-heading"><div><span class="section-number">01</span><h2>Market pulse</h2></div><p>Start with direction, distance from the high, and the markets that most directly frame feeder-cattle economics.</p></div>
-      <article class="chart-card">{charts['price-regime']}{source_note('Yahoo Finance', 'yahoo', 'GF=F daily closes; full history is embedded for local range switching')}</article>
+      <article class="chart-card">{charts['price-regime']}{source_note('Yahoo Finance', 'yahoo', 'GF=F daily closes; drag to zoom and double-click to reset')}</article>
       <article class="chart-card">
         <div class="inline-controls" aria-label="Commodity visibility"><span>Visible series</span><label><input type="checkbox" data-trace-chart="market-drivers" data-trace-name="Feeder cattle" checked> Feeder</label><label><input type="checkbox" data-trace-chart="market-drivers" data-trace-name="Live cattle" checked> Live cattle</label><label><input type="checkbox" data-trace-chart="market-drivers" data-trace-name="Corn" checked> Corn</label></div>
         {charts['market-drivers']}{source_note('Yahoo Finance', 'yahoo', 'GF=F, LE=F, and ZC=F; five-year daily window; correlations use weekly returns')}
@@ -832,8 +840,7 @@ def build() -> dict:
         "data_through": max_date,
         "chart_count": len(charts),
         "time_chart_ids": time_charts,
-        "range_presets": [value for value, _ in RANGE_PRESETS],
-        "range_chart_min_days": RANGE_CHART_MIN_DAYS,
+        "date_range_picker_enabled": ENABLE_DATE_RANGE_PICKER,
         "range_data": {
             "source": "embedded Plotly chart data",
             "price_frequency": "daily",
@@ -910,7 +917,8 @@ def render_page(
     .live-status::before {{ content:""; width:7px; height:7px; border-radius:50%; background:var(--muted); }}
     .live-status.is-live::before {{ background:var(--olive); box-shadow:0 0 0 4px color-mix(in srgb,var(--olive) 18%,transparent); }}
     .live-status.is-stale::before,.live-status.is-error::before {{ background:var(--orange); }}
-    .control-panel {{ position:sticky; top:10px; z-index:30; display:grid; grid-template-columns:minmax(0,2fr) minmax(150px,1fr) auto; gap:12px; align-items:end; background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:var(--shadow); border-radius:var(--radius); padding:14px; margin-bottom:20px; }}
+    .control-panel {{ position:sticky; top:10px; z-index:30; display:grid; grid-template-columns:minmax(150px,1fr) auto; gap:12px; align-items:end; background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:var(--shadow); border-radius:var(--radius); padding:14px; margin-bottom:20px; }}
+    .control-panel.has-date-range {{ grid-template-columns:minmax(0,2fr) minmax(150px,1fr) auto; }}
     .control-group {{ min-width:0; }}
     .control-group label,.inline-controls>span {{ display:block; text-transform:uppercase; letter-spacing:.09em; font-size:.65rem; font-weight:800; color:var(--muted); margin:0 0 6px 2px; }}
     .control-group.wide {{ min-width:0; }} .date-row {{ display:grid; grid-template-columns:minmax(105px,.85fr) minmax(115px,1fr) auto minmax(115px,1fr) auto; gap:7px; align-items:center; }} .control-help {{ display:block; color:var(--muted); font-size:.7rem; margin:6px 0 0 2px; }}
@@ -950,7 +958,7 @@ def render_page(
     .chart-wrap[data-panel-count="4"]>div:first-child {{ min-height:820px; }}
     .js-plotly-plot,.plot-container,.svg-container {{ width:100%!important; }}
     [hidden] {{ display:none!important; }}
-    @media (max-width:1050px) {{ .control-panel {{ grid-template-columns:1fr 1fr; }} .control-group.wide {{ grid-column:1/-1; }} .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
+    @media (max-width:1050px) {{ .control-panel.has-date-range {{ grid-template-columns:1fr 1fr; }} .control-group.wide {{ grid-column:1/-1; }} .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
     @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .control-group.wide {{ grid-column:auto; }} .date-row {{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }} .date-row select {{ grid-column:1/-1; }} .date-row span {{ display:none; }} .date-row input:first-of-type {{ grid-column:1; }} .date-row input:last-of-type {{ grid-column:2; }} .date-row .primary {{ grid-column:1/-1; width:100%; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(340px,92vw,480px)!important; }} .chart-wrap[data-panel-count="2"]>div:first-child {{ height:clamp(540px,135vw,700px)!important; }} .chart-wrap[data-panel-count="3"]>div:first-child {{ height:clamp(680px,175vw,860px)!important; }} .chart-wrap[data-panel-count="4"]>div:first-child {{ height:clamp(1000px,220vw,1250px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(320px,82vw,430px)!important; }} .chart-wrap .js-plotly-plot {{ touch-action:pan-y; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
     @media (max-width:380px) {{ .metric-strip {{ grid-template-columns:1fr; }} .metric-card:last-child {{ grid-column:auto; }} .date-row {{ grid-template-columns:1fr; }} .date-row select,.date-row input:first-of-type,.date-row input:last-of-type,.date-row .primary {{ grid-column:1; }} .decision-banner {{ grid-template-columns:1fr; }} .decision-banner > div:last-of-type {{ grid-column:auto; }} }}
     @media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} }}
@@ -1021,7 +1029,78 @@ def render_page(
         Plotly.relayout(gd, update).then(() => Plotly.Plots.resize(gd));
       }});
     }}
+    function axisRefToLayout(ref, dimension) {{
+      const normalized = ref || dimension;
+      return dimension + 'axis' + normalized.slice(1);
+    }}
+    function dateValue(value) {{
+      if (value instanceof Date) return value.valueOf();
+      if (typeof value === 'number') return value;
+      const parsed = Date.parse(value);
+      return Number.isNaN(parsed) ? null : parsed;
+    }}
+    function visibleYRange(gd, yAxisKey) {{
+      const yAxis = gd._fullLayout && gd._fullLayout[yAxisKey];
+      if (!yAxis || yAxis.type === 'category' || yAxis.fixedrange) return null;
+      const values = [];
+      let includeZero = yAxis.rangemode === 'tozero';
+      (gd.data || []).forEach(trace => {{
+        if (trace.visible === false || trace.visible === 'legendonly') return;
+        if (axisRefToLayout(trace.yaxis, 'y') !== yAxisKey) return;
+        const xAxisKey = axisRefToLayout(trace.xaxis, 'x');
+        const xAxis = gd._fullLayout[xAxisKey];
+        if (!xAxis || xAxis.type !== 'date' || !xAxis.range) return;
+        const start = dateValue(xAxis.range[0]);
+        const end = dateValue(xAxis.range[1]);
+        if (start === null || end === null || !trace.x || !trace.y) return;
+        const lower = Math.min(start, end), upper = Math.max(start, end);
+        const length = Math.min(trace.x.length || 0, trace.y.length || 0);
+        for (let index = 0; index < length; index += 1) {{
+          const timestamp = dateValue(trace.x[index]);
+          const value = Number(trace.y[index]);
+          if (timestamp !== null && timestamp >= lower && timestamp <= upper && Number.isFinite(value)) values.push(value);
+        }}
+        if (trace.fill === 'tozeroy') includeZero = true;
+      }});
+      if (!values.length) return null;
+      let minimum = Math.min(...values), maximum = Math.max(...values);
+      if (includeZero) {{ minimum = Math.min(0, minimum); maximum = Math.max(0, maximum); }}
+      const span = maximum - minimum;
+      const padding = span > 0 ? span * 0.06 : Math.max(Math.abs(maximum) * 0.06, 1);
+      let lower = minimum - padding, upper = maximum + padding;
+      if (includeZero && minimum >= 0) lower = 0;
+      if (includeZero && maximum <= 0) upper = 0;
+      return [lower, upper];
+    }}
+    const rescalingCharts = new WeakSet();
+    function rescaleVisibleY(gd) {{
+      if (!gd || !gd._fullLayout || rescalingCharts.has(gd)) return Promise.resolve();
+      const update = {{}};
+      Object.keys(gd._fullLayout).filter(key => /^yaxis\\d*$/.test(key)).forEach(key => {{
+        const range = visibleYRange(gd, key);
+        if (range) update[key + '.range'] = range;
+      }});
+      if (!Object.keys(update).length) return Promise.resolve();
+      rescalingCharts.add(gd);
+      return Plotly.relayout(gd, update).finally(() => rescalingCharts.delete(gd));
+    }}
+    function changedDateRange(gd, eventData) {{
+      return Object.keys(eventData || {{}}).some(key => {{
+        const match = key.match(/^(xaxis\\d*)\\.(?:range(?:\\[\\d\\])?|autorange)$/);
+        return match && gd._fullLayout[match[1]] && gd._fullLayout[match[1]].type === 'date';
+      }});
+    }}
+    function installVisibleRangeScaling() {{
+      timeCharts.forEach(id => {{
+        const gd = document.getElementById(id);
+        if (!gd || typeof gd.on !== 'function') return;
+        gd.on('plotly_relayout', eventData => {{
+          if (changedDateRange(gd, eventData)) rescaleVisibleY(gd);
+        }});
+      }});
+    }}
     function applyDateRange() {{
+      if (!startInput || !endInput) return;
       const start = startInput.value, end = endInput.value;
       if (!start || !end || start > end) return;
       const requestedDays = Math.max(1, Math.round((Date.parse(end + 'T12:00:00Z') - Date.parse(start + 'T12:00:00Z')) / 86400000));
@@ -1050,7 +1129,7 @@ def render_page(
       return date.toISOString().slice(0, 10) < minDate ? minDate : date.toISOString().slice(0, 10);
     }}
     function selectPreset(preset) {{
-      if (preset === 'custom') return;
+      if (!startInput || !endInput || preset === 'custom') return;
       startInput.value = presetStart(preset);
       endInput.value = maxDate;
       applyDateRange();
@@ -1102,7 +1181,7 @@ def render_page(
       const quoteDate = String(quote.market_time || '').slice(0, 10);
       if (/^\\d{{4}}-\\d{{2}}-\\d{{2}}$/.test(quoteDate) && quoteDate > maxDate) {{
         maxDate = quoteDate;
-        endInput.max = quoteDate;
+        if (endInput) endInput.max = quoteDate;
       }}
     }}
     async function refreshLiveFeed() {{
@@ -1120,9 +1199,10 @@ def render_page(
       }}
     }}
     themeButton.addEventListener('click', () => applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
-    document.getElementById('apply-range').addEventListener('click', applyDateRange);
-    rangePreset.addEventListener('change', event => selectPreset(event.target.value));
-    [startInput, endInput].forEach(input => input.addEventListener('input', () => {{ rangePreset.value = 'custom'; }}));
+    const applyRangeButton = document.getElementById('apply-range');
+    if (applyRangeButton) applyRangeButton.addEventListener('click', applyDateRange);
+    if (rangePreset) rangePreset.addEventListener('change', event => selectPreset(event.target.value));
+    [startInput, endInput].filter(Boolean).forEach(input => input.addEventListener('input', () => {{ rangePreset.value = 'custom'; }}));
     document.getElementById('topic-filter').addEventListener('change', event => {{
       const topic=event.target.value;
       document.querySelectorAll('[data-topic]').forEach(section => section.hidden = topic !== 'all' && !section.dataset.topic.split(' ').includes(topic));
@@ -1131,11 +1211,12 @@ def render_page(
     document.querySelectorAll('[data-trace-chart]').forEach(input => input.addEventListener('change', event => {{
       const gd=document.getElementById(event.target.dataset.traceChart); if(!gd) return;
       const indices=[]; (gd.data || []).forEach((trace,i) => {{ if(trace.name === event.target.dataset.traceName) indices.push(i); }});
-      if(indices.length) Plotly.restyle(gd, {{visible:event.target.checked ? true : 'legendonly'}}, indices);
+      if(indices.length) Plotly.restyle(gd, {{visible:event.target.checked ? true : 'legendonly'}}, indices).then(() => rescaleVisibleY(gd));
     }}));
     window.addEventListener('resize', applyMobileChartLayout, {{passive:true}});
     requestAnimationFrame(applyMobileChartLayout);
     Promise.resolve().then(() => applyTheme(initialTheme));
+    requestAnimationFrame(installVisibleRangeScaling);
     refreshLiveFeed();
     window.setInterval(refreshLiveFeed, 60_000);
   }})();
