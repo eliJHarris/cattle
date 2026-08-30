@@ -19,6 +19,7 @@ class DashboardSmokeTest(unittest.TestCase):
         for preset in ("1d", "5d", "1m", "6m", "1y", "5y", "all"):
             self.assertIn(f'value="{preset}"', text)
         self.assertIn("applyDateRange", text)
+        self.assertIn("'.autorange'", text)
         self.assertIn("preloaded in this page", text)
         self.assertIn('id="topic-filter"', text)
         self.assertIn("Plotly.newPlot", text)

@@ -1019,6 +1019,7 @@ def render_page(
         if (!gd || !gd._fullLayout || requestedDays < (rangeChartMinDays[id] || 1)) return;
         const update = {{}};
         Object.keys(gd._fullLayout).filter(k => /^xaxis\\d*$/.test(k) && gd._fullLayout[k].type === 'date').forEach(k => update[k + '.range'] = [start, end]);
+        Object.keys(gd._fullLayout).filter(k => /^yaxis\\d*$/.test(k)).forEach(k => update[k + '.autorange'] = true);
         if (Object.keys(update).length) Plotly.relayout(gd, update);
       }});
     }}

@@ -3682,7 +3682,7 @@ return Plotly;
       <div class="eyebrow">FEEDER CATTLE · CONTINUOUS CONTRACT</div>
       <h1>Cattle Futures <em>Market Monitor</em></h1>
       <p class="lede">Price regime, physical supply, cross-market drivers, positioning, seasonality, and risk—assembled into one transparent 13-week tactical view.</p>
-      <div class="hero-meta"><span>Analysis through <b>August 28, 2026</b></span><span>Built <b>August 30, 2026 · 03:48 UTC</b></span><span id="live-status" class="live-status" role="status">Checking market feed…</span></div>
+      <div class="hero-meta"><span>Analysis through <b>August 28, 2026</b></span><span>Built <b>August 30, 2026 · 03:53 UTC</b></span><span id="live-status" class="live-status" role="status">Checking market feed…</span></div>
     </section>
 
     <section class="control-panel" aria-label="Dashboard controls">
@@ -3978,6 +3978,7 @@ return Plotly;
         if (!gd || !gd._fullLayout || requestedDays < (rangeChartMinDays[id] || 1)) return;
         const update = {};
         Object.keys(gd._fullLayout).filter(k => /^xaxis\d*$/.test(k) && gd._fullLayout[k].type === 'date').forEach(k => update[k + '.range'] = [start, end]);
+        Object.keys(gd._fullLayout).filter(k => /^yaxis\d*$/.test(k)).forEach(k => update[k + '.autorange'] = true);
         if (Object.keys(update).length) Plotly.relayout(gd, update);
       });
     }
