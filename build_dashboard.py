@@ -350,11 +350,12 @@ def style_figure(fig: go.Figure, title: str, subtitle: str, height: int = 500, h
     return fig
 
 
-def chart_html(fig: go.Figure, chart_id: str) -> str:
+def chart_html(fig: go.Figure, chart_id: str, panel_count: int = 1) -> str:
     chart = pio.to_html(fig, full_html=False, include_plotlyjs=False, config=PLOT_CONFIG, div_id=chart_id)
     # Keep our responsive hook independent of Plotly's version-specific
-    # inline wrapper markup.
-    return f'<div class="chart-wrap">{chart}</div>'
+    # inline wrapper markup.  Multi-panel figures need more vertical room on
+    # phones; otherwise Plotly compresses each subplot into a thin strip.
+    return f'<div class="chart-wrap" data-panel-count="{panel_count}">{chart}</div>'
 
 
 def source_note(label: str, source_key: str, detail: str) -> str:
@@ -510,7 +511,7 @@ def build() -> dict:
     fig.update_yaxes(title_text="Drawdown", tickformat=".0%", row=2, col=1)
     fig.update_xaxes(title_text="Week ending", row=2, col=1)
     style_figure(fig, "Price regime and drawdown", f"Friday closes; {feeder.index.min():%b %Y}–{feeder.index.max():%b %Y}", 660, "x unified")
-    charts["price-regime"] = chart_html(fig, "price-regime")
+    charts["price-regime"] = chart_html(fig, "price-regime", panel_count=2)
     time_charts.append("price-regime")
 
     # 2. Market drivers.
@@ -530,7 +531,7 @@ def build() -> dict:
     fig.update_yaxes(title_text="Cents/lb", row=3, col=1)
     fig.update_xaxes(title_text="Week ending", row=3, col=1)
     style_figure(fig, "Relationships with live cattle and corn", "Five-year indexed prices, weekly-return correlations, and feeder premium", 810, "x unified")
-    charts["market-drivers"] = chart_html(fig, "market-drivers")
+    charts["market-drivers"] = chart_html(fig, "market-drivers", panel_count=3)
     time_charts.append("market-drivers")
 
     # 3. USDA supply history and current year-over-year comparison.
@@ -549,7 +550,7 @@ def build() -> dict:
             fig.update_yaxes(title_text=unit, row=row, col=1)
         fig.update_xaxes(title_text="Month / release date", row=4, col=1)
         style_figure(fig, "Feeder-cattle price and USDA supply measures", "Feedlots with capacity of 1,000+ head", 850, "x unified")
-        charts["usda-history"] = chart_html(fig, "usda-history")
+        charts["usda-history"] = chart_html(fig, "usda-history", panel_count=4)
         time_charts.append("usda-history")
 
         yoy = latest_usda[["Inventory YoY", "Placements YoY", "Marketings YoY"]].copy()
@@ -574,7 +575,7 @@ def build() -> dict:
         fig.update_yaxes(title_text="Percent of area", rangemode="tozero", row=2, col=1)
         fig.update_xaxes(title_text="Week", row=2, col=1)
         style_figure(fig, "Feeder-cattle price and drought", f"Equal-weighted D2+ area across six cattle states; return/change correlation {drought_corr:.2f}", 660, "x unified")
-        charts["drought"] = chart_html(fig, "drought")
+        charts["drought"] = chart_html(fig, "drought", panel_count=2)
         time_charts.append("drought")
     else:
         drought_corr = np.nan
@@ -590,7 +591,7 @@ def build() -> dict:
         fig.update_yaxes(title_text="Cents/lb", row=1, col=1)
         fig.update_yaxes(title_text="$/contract", row=2, col=1)
         style_figure(fig, "Feeder-cattle futures term structure", "Latest listed-contract closes; 50,000 pounds per contract; focused price scale", 620)
-        charts["curve"] = chart_html(fig, "curve")
+        charts["curve"] = chart_html(fig, "curve", panel_count=2)
     else:
         charts["curve"] = '<div class="unavailable">Listed-contract curve unavailable for this build.</div>'
 
@@ -603,7 +604,7 @@ def build() -> dict:
         fig.update_yaxes(title_text="Contracts", row=2, col=1)
         fig.update_xaxes(title_text="CFTC report date", row=2, col=1)
         style_figure(fig, "CFTC positioning and participation", f"Latest managed-money net is at the {net_percentile:.0%} percentile of this sample", 650, "x unified")
-        charts["positioning"] = chart_html(fig, "positioning")
+        charts["positioning"] = chart_html(fig, "positioning", panel_count=2)
         time_charts.append("positioning")
     else:
         charts["positioning"] = '<div class="unavailable">CFTC positioning chart unavailable for this build.</div>'
@@ -645,7 +646,7 @@ def build() -> dict:
     fig.update_xaxes(tickformat="+.0%", title_text="Weekly return", row=2, col=1)
     fig.update_xaxes(tickformat="+.0%", title_text="Weekly return", row=2, col=2)
     style_figure(fig, "Return and tail-risk diagnostics", f"Six-year weekly sample with {len(returns)} returns", 780)
-    charts["risk"] = chart_html(fig, "risk")
+    charts["risk"] = chart_html(fig, "risk", panel_count=4)
     time_charts.append("risk")
 
     # 10. Recommendation contributions.
@@ -887,10 +888,13 @@ def render_page(
     .source-status ul {{ list-style:none; margin:0; padding:0 16px 14px; }} .source-status li {{ display:flex; justify-content:space-between; gap:24px; padding:8px 0; border-top:1px solid var(--line); font-size:.78rem; }} .source-status strong {{ text-align:right; }} .source-status .ok {{ color:var(--olive); }} .source-status .warn {{ color:var(--orange); }}
     footer {{ border-top:1px solid var(--line); color:var(--muted); padding:22px 0 40px; font-size:.75rem; display:flex; justify-content:space-between; gap:20px; }}
     .chart-wrap {{ width:100%; min-width:0; }} .chart-wrap>div {{ width:100%!important; }}
+    .chart-wrap[data-panel-count="2"]>div:first-child {{ min-height:560px; }}
+    .chart-wrap[data-panel-count="3"]>div:first-child {{ min-height:700px; }}
+    .chart-wrap[data-panel-count="4"]>div:first-child {{ min-height:820px; }}
     .js-plotly-plot,.plot-container,.svg-container {{ width:100%!important; }}
     [hidden] {{ display:none!important; }}
     @media (max-width:1050px) {{ .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
-    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(300px,82vw,430px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(280px,72vw,390px)!important; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
+    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(320px,82vw,430px)!important; }} .chart-wrap[data-panel-count="2"]>div:first-child {{ height:clamp(500px,125vw,620px)!important; }} .chart-wrap[data-panel-count="3"]>div:first-child {{ height:clamp(620px,160vw,780px)!important; }} .chart-wrap[data-panel-count="4"]>div:first-child {{ height:clamp(760px,185vw,900px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(280px,72vw,390px)!important; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
     @media (max-width:380px) {{ .metric-strip {{ grid-template-columns:1fr; }} .metric-card:last-child {{ grid-column:auto; }} .decision-banner {{ grid-template-columns:1fr; }} .decision-banner > div:last-of-type {{ grid-column:auto; }} }}
     @media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} }}
     @media print {{ .control-panel,.inline-controls,.modebar-container {{ display:none!important; }} body {{ background:#fff; }} .shell {{ width:100%; }} .chart-card,.metric-card {{ box-shadow:none; break-inside:avoid; }} }}
@@ -922,6 +926,27 @@ def render_page(
         Object.keys(gd._fullLayout || {{}}).filter(k => /^xaxis\\d*$|^yaxis\\d*$/.test(k)).forEach(k => {{
           update[k + '.gridcolor'] = p.grid; update[k + '.linecolor'] = p.line; update[k + '.zerolinecolor'] = p.line;
         }});
+        Plotly.relayout(gd, update);
+      }});
+    }}
+    function applyMobileChartLayout() {{
+      if (!matchMedia('(max-width:680px)').matches) return;
+      document.querySelectorAll('.js-plotly-plot').forEach(gd => {{
+        const wrapper = gd.closest('.chart-wrap');
+        const panelCount = Number(wrapper && wrapper.dataset.panelCount) || 1;
+        const update = {{
+          'margin.l': 52,
+          'margin.r': 16,
+          'margin.t': panelCount > 1 ? 106 : 92,
+          'margin.b': 48,
+          'title.font.size': 15,
+          'legend.font.size': 10
+        }};
+        Object.keys(gd._fullLayout || {{}}).filter(key => /^xaxis\\d*$|^yaxis\\d*$/.test(key)).forEach(key => {{
+          update[key + '.title.font.size'] = 10;
+          update[key + '.tickfont.size'] = 10;
+        }});
+        if (panelCount > 1) update['legend.tracegroupgap'] = 0;
         Plotly.relayout(gd, update);
       }});
     }}
@@ -995,6 +1020,8 @@ def render_page(
       const indices=[]; (gd.data || []).forEach((trace,i) => {{ if(trace.name === event.target.dataset.traceName) indices.push(i); }});
       if(indices.length) Plotly.restyle(gd, {{visible:event.target.checked ? true : 'legendonly'}}, indices);
     }}));
+    window.addEventListener('resize', applyMobileChartLayout, {{passive:true}});
+    requestAnimationFrame(applyMobileChartLayout);
     Promise.resolve().then(() => applyTheme(initialTheme));
     refreshLiveFeed();
     window.setInterval(refreshLiveFeed, 60_000);
