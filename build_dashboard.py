@@ -704,7 +704,6 @@ def build() -> dict:
         for name, status in source_status.items()
     )
     as_of = feeder.index.max()
-    min_date = feeder.index.min().date().isoformat()
     max_date = as_of.date().isoformat()
 
     content = f"""
@@ -716,8 +715,6 @@ def build() -> dict:
     </section>
 
     <section class="control-panel" aria-label="Dashboard controls">
-      <div class="control-group wide"><label for="start-date">Date range</label><div class="date-row"><input id="start-date" type="date" min="{min_date}" max="{max_date}" value="{min_date}"><span>to</span><input id="end-date" type="date" min="{min_date}" max="{max_date}" value="{max_date}"><button id="apply-range" class="primary">Apply</button></div></div>
-      <div class="control-group"><label for="range-preset">Quick window</label><select id="range-preset"><option value="max">Six years</option><option value="1y">One year</option><option value="3y">Three years</option><option value="5y">Five years</option></select></div>
       <div class="control-group"><label for="topic-filter">Focus</label><select id="topic-filter"><option value="all">All analysis</option><option value="overview">Overview</option><option value="fundamentals">Supply & drought</option><option value="market">Market structure</option><option value="positioning">Positioning & seasonality</option><option value="risk">Risk & decision</option></select></div>
       <button id="theme-toggle" class="theme-toggle" aria-label="Toggle color theme"><span aria-hidden="true">◐</span><span class="theme-label">Dark</span></button>
     </section>
@@ -778,9 +775,6 @@ def build() -> dict:
     page = render_page(
         content=content,
         plotly_js=get_plotlyjs(),
-        time_charts=time_charts,
-        min_date=min_date,
-        max_date=max_date,
         live_feed_url=live_feed_url,
     )
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -825,9 +819,6 @@ def build() -> dict:
 def render_page(
     content: str,
     plotly_js: str,
-    time_charts: list[str],
-    min_date: str,
-    max_date: str,
     live_feed_url: str,
 ) -> str:
     return f"""<!doctype html>
@@ -860,12 +851,11 @@ def render_page(
     .live-status::before {{ content:""; width:7px; height:7px; border-radius:50%; background:var(--muted); }}
     .live-status.is-live::before {{ background:var(--olive); box-shadow:0 0 0 4px color-mix(in srgb,var(--olive) 18%,transparent); }}
     .live-status.is-stale::before,.live-status.is-error::before {{ background:var(--orange); }}
-    .control-panel {{ position:sticky; top:10px; z-index:30; display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:12px; align-items:end; background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:var(--shadow); border-radius:var(--radius); padding:14px; margin-bottom:20px; }}
+    .control-panel {{ position:sticky; top:10px; z-index:30; display:grid; grid-template-columns:1fr auto; gap:12px; align-items:end; background:color-mix(in srgb,var(--surface) 92%,transparent); backdrop-filter:blur(16px); border:1px solid var(--line); box-shadow:var(--shadow); border-radius:var(--radius); padding:14px; margin-bottom:20px; }}
     .control-group {{ min-width:0; }}
     .control-group label,.inline-controls>span {{ display:block; text-transform:uppercase; letter-spacing:.09em; font-size:.65rem; font-weight:800; color:var(--muted); margin:0 0 6px 2px; }}
-    .date-row {{ display:flex; align-items:center; gap:7px; }}
-    input[type="date"],select,button {{ border:1px solid var(--line); background:var(--surface-2); border-radius:10px; min-height:44px; padding:8px 11px; }}
-    input[type="date"],select {{ width:100%; min-width:0; }}
+    select,button {{ border:1px solid var(--line); background:var(--surface-2); border-radius:10px; min-height:44px; padding:8px 11px; }}
+    select {{ width:100%; min-width:0; }}
     button {{ cursor:pointer; font-weight:750; }}
     button.primary {{ background:var(--blue); color:#fff; border-color:transparent; }}
     .theme-toggle {{ display:flex; gap:7px; align-items:center; justify-content:center; background:var(--surface); min-width:86px; }}
@@ -896,9 +886,9 @@ def render_page(
     .chart-wrap {{ width:100%; min-width:0; }} .chart-wrap>div {{ width:100%!important; }}
     .js-plotly-plot,.plot-container,.svg-container {{ width:100%!important; }}
     [hidden] {{ display:none!important; }}
-    @media (max-width:1050px) {{ .control-panel {{ grid-template-columns:1fr 1fr; }} .control-group.wide {{ grid-column:1/-1; }} .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
-    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .control-group.wide {{ grid-column:auto; }} .date-row {{ display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); }} .date-row .primary {{ grid-column:1/-1; width:100%; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(300px,82vw,430px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(280px,72vw,390px)!important; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
-    @media (max-width:380px) {{ .metric-strip {{ grid-template-columns:1fr; }} .metric-card:last-child {{ grid-column:auto; }} .date-row {{ grid-template-columns:minmax(0,1fr) auto; }} .date-row input:last-of-type {{ grid-column:1/-1; }} .date-row .primary {{ grid-column:1/-1; }} .decision-banner {{ grid-template-columns:1fr; }} .decision-banner > div:last-of-type {{ grid-column:auto; }} }}
+    @media (max-width:1050px) {{ .metric-strip {{ grid-template-columns:repeat(3,1fr); }} .chart-grid.two {{ grid-template-columns:1fr; }} .decision-banner {{ grid-template-columns:repeat(3,1fr); }} .decision-banner p {{ grid-column:1/-1; }} }}
+    @media (max-width:680px) {{ .shell {{ width:calc(100% - 24px); }} .hero {{ padding:42px 0 28px; }} h1 {{ font-size:clamp(2.35rem,13vw,4.2rem); overflow-wrap:anywhere; }} .lede {{ margin:20px 0 16px; }} .hero-meta {{ gap:8px 16px; font-size:.76rem; }} .control-panel {{ position:relative; top:auto; grid-template-columns:1fr; padding:12px; gap:10px; }} .metric-strip {{ grid-template-columns:1fr 1fr; gap:8px; margin:14px 0 58px; }} .metric-card {{ min-height:135px; padding:14px; }} .metric-card strong {{ font-size:clamp(1.3rem,7vw,1.85rem); }} .metric-card p {{ margin-top:12px; }} .metric-card:last-child {{ grid-column:1/-1; min-height:0; }} .section-heading {{ align-items:start; flex-direction:column; gap:10px; }} .section-heading p {{ font-size:.82rem; }} .chart-wrap>div:first-child {{ height:clamp(300px,82vw,430px)!important; }} .chart-card.compact .chart-wrap>div:first-child {{ height:clamp(280px,72vw,390px)!important; }} .inline-controls {{ gap:8px 14px; padding:12px 14px 0; }} .inline-controls>span {{ flex-basis:100%; }} .decision-banner {{ grid-template-columns:1fr 1fr; gap:14px; padding:18px; }} .decision-banner > div:last-of-type {{ grid-column:1/-1; }} .decision-banner p {{ grid-column:1/-1; }} .method-grid {{ grid-template-columns:1fr; }} .source-status li {{ align-items:flex-start; flex-direction:column; gap:3px; }} .source-status strong {{ text-align:left; overflow-wrap:anywhere; }} footer {{ flex-direction:column; gap:8px; }} .data-table {{ min-width:620px; font-size:.7rem; }} }}
+    @media (max-width:380px) {{ .metric-strip {{ grid-template-columns:1fr; }} .metric-card:last-child {{ grid-column:auto; }} .decision-banner {{ grid-template-columns:1fr; }} .decision-banner > div:last-of-type {{ grid-column:auto; }} }}
     @media (prefers-reduced-motion:reduce) {{ html {{ scroll-behavior:auto; }} }}
     @media print {{ .control-panel,.inline-controls,.modebar-container {{ display:none!important; }} body {{ background:#fff; }} .shell {{ width:100%; }} .chart-card,.metric-card {{ box-shadow:none; break-inside:avoid; }} }}
   </style>
@@ -908,13 +898,8 @@ def render_page(
   <footer class="shell"><span>General market research—not individualized financial advice.</span><span>Python-built · Static GitHub Pages snapshot · No cookies or analytics</span></footer>
   <script>
   (() => {{
-    const timeCharts = {json.dumps(time_charts)};
-    const minDate = {json.dumps(min_date)};
-    let maxDate = {json.dumps(max_date)};
     const liveFeedUrl = {json.dumps(live_feed_url)};
     const root = document.documentElement;
-    const startInput = document.getElementById('start-date');
-    const endInput = document.getElementById('end-date');
     const themeButton = document.getElementById('theme-toggle');
     const savedTheme = localStorage.getItem('cattle-theme');
     const initialTheme = savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -937,18 +922,6 @@ def render_page(
         Plotly.relayout(gd, update);
       }});
     }}
-    function applyDateRange() {{
-      const start = startInput.value, end = endInput.value;
-      if (!start || !end || start > end) return;
-      timeCharts.forEach(id => {{
-        const gd = document.getElementById(id);
-        if (!gd || !gd._fullLayout) return;
-        const update = {{}};
-        Object.keys(gd._fullLayout).filter(k => /^xaxis\\d*$/.test(k) && gd._fullLayout[k].type === 'date').forEach(k => update[k + '.range'] = [start, end]);
-        if (Object.keys(update).length) Plotly.relayout(gd, update);
-      }});
-    }}
-    function yearsAgo(iso, years) {{ const d = new Date(iso + 'T12:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() - years); return d.toISOString().slice(0,10); }}
     function formatMarketTime(value) {{
       const date = new Date(value);
       if (Number.isNaN(date.valueOf())) return 'time unavailable';
@@ -993,11 +966,6 @@ def render_page(
         : '';
       document.getElementById('live-price-context').textContent = move + 'As of ' + formatMarketTime(quote.market_time);
       updateLiveMarker(quote);
-      const quoteDate = String(quote.market_time || '').slice(0, 10);
-      if (/^\\d{{4}}-\\d{{2}}-\\d{{2}}$/.test(quoteDate) && quoteDate > maxDate) {{
-        maxDate = quoteDate;
-        endInput.max = quoteDate;
-      }}
     }}
     async function refreshLiveFeed() {{
       if (!liveFeedUrl) return;
@@ -1014,8 +982,6 @@ def render_page(
       }}
     }}
     themeButton.addEventListener('click', () => applyTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
-    document.getElementById('apply-range').addEventListener('click', applyDateRange);
-    document.getElementById('range-preset').addEventListener('change', event => {{ const v=event.target.value; startInput.value = v === 'max' ? minDate : yearsAgo(maxDate, parseInt(v)); endInput.value=maxDate; applyDateRange(); }});
     document.getElementById('topic-filter').addEventListener('change', event => {{
       const topic=event.target.value;
       document.querySelectorAll('[data-topic]').forEach(section => section.hidden = topic !== 'all' && !section.dataset.topic.split(' ').includes(topic));

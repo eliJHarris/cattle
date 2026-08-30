@@ -2,7 +2,7 @@
 
 A Python-generated, self-contained cattle-futures dashboard designed for GitHub Pages. It carries the analytical views from `cattleFutures.ipynb` into an interactive website with:
 
-- global date-range and topic controls;
+- global topic controls;
 - feeder-cattle price, drawdown, supply, drought, curve, positioning, seasonality, event, and risk views;
 - a transparent five-factor tactical recommendation;
 - light and dark themes;
