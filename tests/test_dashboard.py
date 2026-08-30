@@ -1,12 +1,30 @@
 import json
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+import pandas as pd
+
+from build_dashboard import yahoo_closes
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class DashboardSmokeTest(unittest.TestCase):
+    def test_yahoo_download_is_sequential_and_retries_empty_results(self):
+        index = pd.DatetimeIndex(["2026-08-28"], tz="UTC")
+        valid = pd.DataFrame({"Close": [242.5]}, index=index)
+        with patch("build_dashboard.yf.download", side_effect=[pd.DataFrame(), valid]) as download:
+            with patch("build_dashboard.time.sleep") as sleep:
+                closes = yahoo_closes("GF=F")
+
+        self.assertEqual(download.call_count, 2)
+        self.assertFalse(download.call_args.kwargs["threads"])
+        sleep.assert_called_once_with(1)
+        self.assertEqual(closes.columns.tolist(), ["GF=F"])
+        self.assertIsNone(closes.index.tz)
+
     def test_generated_page_is_self_contained_and_interactive(self):
         page = ROOT / "docs" / "index.html"
         self.assertTrue(page.exists(), "Run python build_dashboard.py first")

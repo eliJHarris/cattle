@@ -12,6 +12,7 @@ import json
 import math
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -84,25 +85,42 @@ RANGE_CHART_MIN_DAYS = {
 ENABLE_DATE_RANGE_PICKER = False
 
 
-def yahoo_closes(tickers: list[str] | str, **kwargs) -> pd.DataFrame:
-    """Return clean Yahoo closing-price columns with a timezone-naive index."""
-    raw = yf.download(
-        tickers=tickers,
-        auto_adjust=False,
-        progress=False,
-        group_by="column",
-        threads=True,
-        timeout=30,
-        **kwargs,
-    )
-    if raw.empty:
-        raise RuntimeError(f"Yahoo returned no data for {tickers}")
-    closes = raw["Close"]
-    if isinstance(closes, pd.Series):
-        name = tickers if isinstance(tickers, str) else tickers[0]
-        closes = closes.rename(name).to_frame()
-    closes.index = pd.to_datetime(closes.index).tz_localize(None)
-    return closes.sort_index()
+def yahoo_closes(tickers: list[str] | str, attempts: int = 3, **kwargs) -> pd.DataFrame:
+    """Return clean Yahoo closes, retrying transient download/cache failures."""
+    expected = [tickers] if isinstance(tickers, str) else list(tickers)
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            # yfinance stores cookies and ticker time zones in SQLite. Its
+            # multi-ticker workers can race while creating those databases on
+            # a fresh GitHub runner, surfacing as "database is locked" and an
+            # empty core series. Sequential downloads avoid that cache race.
+            raw = yf.download(
+                tickers=tickers,
+                auto_adjust=False,
+                progress=False,
+                group_by="column",
+                threads=False,
+                timeout=30,
+                **kwargs,
+            )
+            if raw is None or raw.empty or "Close" not in raw:
+                raise RuntimeError("Yahoo returned no closing-price data")
+            closes = raw["Close"]
+            if isinstance(closes, pd.Series):
+                closes = closes.rename(expected[0]).to_frame()
+            missing = [ticker for ticker in expected if ticker not in closes or closes[ticker].dropna().empty]
+            if missing:
+                raise RuntimeError(f"Yahoo returned no closes for {', '.join(missing)}")
+            closes.index = pd.to_datetime(closes.index).tz_localize(None)
+            return closes.sort_index()
+        except Exception as error:
+            last_error = error
+            if attempt < attempts:
+                delay = 2 ** (attempt - 1)
+                print(f"Yahoo download attempt {attempt}/{attempts} failed ({error}); retrying in {delay}s", flush=True)
+                time.sleep(delay)
+    raise RuntimeError(f"Yahoo download failed for {tickers} after {attempts} attempts") from last_error
 
 
 def find_usda_text_releases(pages: int = 4) -> list[str]:
