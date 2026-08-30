@@ -1,0 +1,22 @@
+{
+  "built_at": "2026-08-30T01:59:50.576387+00:00",
+  "data_through": "2026-08-28",
+  "chart_count": 12,
+  "time_chart_ids": [
+    "price-regime",
+    "market-drivers",
+    "usda-history",
+    "drought",
+    "positioning",
+    "risk"
+  ],
+  "source_status": {
+    "Yahoo prices": "Daily history through Aug 28, 2026",
+    "USDA Cattle on Feed": "37 releases through Aug 21, 2026",
+    "U.S. Drought Monitor": "Six-state D2+ coverage through Aug 25, 2026",
+    "CFTC positioning": "313 weekly reports through Aug 25, 2026",
+    "Listed futures curve": "8 listed contracts; closes through Aug 28, 2026"
+  },
+  "recommendation": "SELL",
+  "recommendation_score": -0.6
+}
