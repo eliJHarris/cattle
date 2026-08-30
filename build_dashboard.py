@@ -351,7 +351,12 @@ def chart_html(fig: go.Figure, chart_id: str) -> str:
     chart = pio.to_html(fig, full_html=False, include_plotlyjs=False, config=PLOT_CONFIG, div_id=chart_id)
     # Give the generated outer wrapper a stable hook so mobile CSS can reduce
     # chart height without having to depend on Plotly's inline markup.
-    return chart.replace('<div style="height:', '<div class="chart-wrap" style="height:', 1)
+    return re.sub(
+        r'<div style="height:\s*',
+        '<div class="chart-wrap" style="height:',
+        chart,
+        count=1,
+    )
 
 
 def source_note(label: str, source_key: str, detail: str) -> str:
