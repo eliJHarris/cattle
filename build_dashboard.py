@@ -666,16 +666,22 @@ def build() -> dict:
     rolling_return = feeder.pct_change(52)
     rolling_vol = returns.rolling(52).std() * math.sqrt(52)
     extremes = pd.concat([returns.nsmallest(5).rename("Return").to_frame().assign(Group="Worst"), returns.nlargest(5).rename("Return").to_frame().assign(Group="Best")]).sort_values("Return")
+    extreme_dates = [index.strftime("%Y-%m-%d") for index in extremes.index]
     fig = make_subplots(rows=4, cols=1, vertical_spacing=0.09, subplot_titles=("Rolling 52-week price return", "Rolling 52-week annualized volatility", "Distribution of weekly returns", "Five worst and five best weeks"))
     fig.add_trace(go.Scatter(x=rolling_return.index, y=rolling_return, line={"color": COLORS["blue"], "width": 1.8}, showlegend=False, hovertemplate="%{x|%b %d, %Y}<br>%{y:+.1%}<extra></extra>"), row=1, col=1)
     fig.add_trace(go.Scatter(x=rolling_vol.index, y=rolling_vol, line={"color": COLORS["orange"], "width": 1.8}, showlegend=False, hovertemplate="%{x|%b %d, %Y}<br>%{y:.1%}<extra></extra>"), row=2, col=1)
     fig.add_trace(go.Histogram(x=returns, nbinsx=30, marker={"color": COLORS["blue_light"], "line": {"color": COLORS["blue"], "width": 1}}, showlegend=False, hovertemplate="Return %{x:.1%}<br>Weeks %{y}<extra></extra>"), row=3, col=1)
-    fig.add_trace(go.Bar(x=extremes["Return"], y=[index.strftime("%Y-%m-%d") for index in extremes.index], orientation="h", marker={"color": [COLORS["blue_light"] if group == "Worst" else COLORS["blue"] for group in extremes["Group"]]}, text=[f"{value:+.1%}" for value in extremes["Return"]], textposition="outside", showlegend=False, hovertemplate="%{y}<br>%{x:+.1%}<extra></extra>"), row=4, col=1)
+    fig.add_trace(go.Bar(x=extremes["Return"], y=extreme_dates, orientation="h", marker={"color": [COLORS["blue_light"] if group == "Worst" else COLORS["blue"] for group in extremes["Group"]]}, text=[f"{value:+.1%}" for value in extremes["Return"]], textposition="outside", showlegend=False, hovertemplate="%{y}<br>%{x:+.1%}<extra></extra>"), row=4, col=1)
     fig.update_xaxes(showticklabels=True)
     fig.update_yaxes(tickformat="+.0%", row=1, col=1)
     fig.update_yaxes(tickformat=".0%", rangemode="tozero", row=2, col=1)
     fig.update_xaxes(tickformat="+.0%", title_text="Weekly return", row=3, col=1)
     fig.update_xaxes(tickformat="+.0%", title_text="Weekly return", row=4, col=1)
+    # ISO date strings otherwise become a continuous date axis. That makes
+    # the bars nearly invisible because their default date width is tiny.
+    # Treat each selected week as a category so the dates and bars are both
+    # legible in the compact fourth panel.
+    fig.update_yaxes(type="category", categoryorder="array", categoryarray=extreme_dates, tickmode="array", tickvals=extreme_dates, ticktext=[index.strftime("%b %d '%y") for index in extremes.index], tickfont={"size": 10}, automargin=True, row=4, col=1)
     style_figure(fig, "Return and tail-risk diagnostics", f"Six-year weekly sample with {len(returns)} returns", 1000)
     charts["risk"] = chart_html(fig, "risk", panel_count=4)
     time_charts.append("risk")

@@ -32,6 +32,7 @@ class DashboardSmokeTest(unittest.TestCase):
         self.assertIn('touch-action:pan-y', text)
         self.assertIn("'dragmode': false", text)
         self.assertIn('class="table-scroll"', text)
+        self.assertIn('"categoryorder":"array"', text)
         self.assertIn('@media (max-width:680px)', text)
         self.assertNotIn('src="https://cdn.plot.ly', text)
         self.assertNotIn('href="/assets/', text)
