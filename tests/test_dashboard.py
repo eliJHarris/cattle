@@ -20,6 +20,7 @@ class DashboardSmokeTest(unittest.TestCase):
             self.assertIn(f'value="{preset}"', text)
         self.assertIn("applyDateRange", text)
         self.assertIn("'.autorange'", text)
+        self.assertIn('"showticklabels":true', text)
         self.assertIn("Changes the two Market Pulse charts first", text)
         self.assertIn("Daily price history is preloaded", text)
         self.assertIn('id="topic-filter"', text)

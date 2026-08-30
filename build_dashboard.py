@@ -574,6 +574,10 @@ def build() -> dict:
         for row, (name, series, color, unit) in enumerate(panels, start=1):
             fig.add_trace(go.Scatter(x=series.index, y=series, name=name, line={"color": color, "width": 2}, marker={"size": 4}, mode="lines+markers", hovertemplate=f"{name}<br>%{{x|%b %d, %Y}}<br>%{{y:,.1f}} {unit}<extra></extra>"), row=row, col=1)
             fig.update_yaxes(title_text=unit, row=row, col=1)
+        # Plotly suppresses tick labels on upper panels when x-axes are
+        # shared. Keep the dates visible so each supply series can be read
+        # without tracing down to the bottom subplot.
+        fig.update_xaxes(showticklabels=True)
         fig.update_xaxes(title_text="Month / release date", row=4, col=1)
         style_figure(fig, "Feeder-cattle price and USDA supply measures", "Feedlots with capacity of 1,000+ head", 850, "x unified")
         charts["usda-history"] = chart_html(fig, "usda-history", panel_count=4)
